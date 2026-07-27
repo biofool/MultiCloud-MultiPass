@@ -1,0 +1,97 @@
+# Example accounts registry for local dev / USE_FIRESTORE=false.
+#
+# Copy to config/accounts.yaml and edit, or use `python scripts/register_project.py`
+# to append entries. In production (USE_FIRESTORE=true) this file is unused —
+# accounts live in the hub project's Firestore "accounts" collection instead.
+#
+# The `cloud` field selects the provider implementation for kill actions
+# and cost reconciliation. GCP accounts use cloud: gcp with gcp_project_id;
+# OpenStack accounts use cloud: openstack with openstack_project/regions.
+#
+# The `jobs` list provides fallback kill descriptors for jobs that don't
+# declare their own kill mechanism in the intent. Each entry matches by
+# job_id_prefix.
+
+accounts:
+  # --- GCP account (AIRichardMoon) ---
+  # This is the hub project that CloudManagement itself runs in.
+  # allowlist: true prevents the kill switch from ever targeting it,
+  # as a belt-and-suspenders guard alongside the SELF_PROJECT_ID
+  # hard-block in execute_killswitch(). The hub project gets its own
+  # email-only budget alert (see terraform self_budget resource).
+  - project_id: your-project-1
+    cloud: gcp
+    gcp_project_id: your-hub-project
+    billing_account_id: "01AB-23CD-EF45"
+    owner_email: owner@example.com
+    allowlist: true
+    budget_amount_usd: 10
+    quota_rpm_cap: 6000
+    report_token_secret: CLOUDMANAGEMENT_REPORT_TOKEN_AIRICHARDMOON
+    jobs:
+      - job_id_prefix: "gemini-session-"
+        kill:
+          type: http_callback
+          url: "https://your-service-url.a.run.app/v1/admin/kill-session"
+          method: POST
+          headers:
+            X-Kill-Token: "<set via Secret Manager>"
+
+  # --- GCP account (WorldStudioFinder) ---
+  - project_id: your-project-2
+    cloud: gcp
+    gcp_project_id: your-gcp-project-1
+    billing_account_id: "01AB-23CD-EF45"
+    owner_email: owner@example.com
+    allowlist: false
+    budget_amount_usd: 50
+    quota_rpm_cap: 6000
+    report_token_secret: CLOUDMANAGEMENT_REPORT_TOKEN_WORLDSTUDIOFINDER
+    jobs:
+      - job_id_prefix: "scrape-phase1-"
+        kill:
+          type: http_callback
+          url: "https://your-project-2.example/admin/kill-job"
+          method: POST
+          headers:
+            X-Kill-Token: "<set via Secret Manager>"
+
+  # --- GCP account (bb-ray, scraper alt project) ---
+  - project_id: your-project-2-alt
+    cloud: gcp
+    gcp_project_id: your-gcp-project-2
+    billing_account_id: "01AB-23CD-EF45"
+    owner_email: owner@example.com
+    allowlist: false
+    budget_amount_usd: 50
+    quota_rpm_cap: 6000
+    report_token_secret: CLOUDMANAGEMENT_REPORT_TOKEN_WORLDSTUDIOFINDER
+
+  # --- OpenStack account (FieldWorker) ---
+  - project_id: your-project-3
+    cloud: openstack
+    openstack_project: "your-openstack-project-id"
+    openstack_regions:
+      - your-region-1
+      - your-region-2
+    owner_email: owner@example.com
+    allowlist: false
+    budget_amount_usd: 20
+    quota_rpm_cap: 0
+    report_token_secret: CLOUDMANAGEMENT_REPORT_TOKEN_FIELDWORKER
+    jobs:
+      - job_id_prefix: "openstack-instance-"
+        kill:
+          type: openstack
+          instance_id: "<set per intent>"
+          region: your-region-1
+
+  # --- Protected/shared project (never touched) ---
+  - project_id: shared-prod
+    cloud: gcp
+    gcp_project_id: your-hub-project
+    billing_account_id: "01AB-23CD-EF45"
+    owner_email: team@example.com
+    allowlist: true
+    budget_amount_usd: 200
+    quota_rpm_cap: 0

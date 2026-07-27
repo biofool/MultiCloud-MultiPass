@@ -1,0 +1,38 @@
+billing_project_id = "your-hub-project"
+billing_account_id = "01AB-23CD-EF45"
+region             = "us-central1"
+dry_run            = "true"
+allowlist          = "prod-project,your-hub-project"
+budget_amount_usd  = 5
+image              = ""
+
+# Exactly one of these — every monitored project must live under it so the
+# hub service account's IAM grants are inherited automatically.
+org_id    = "" # e.g. "123456789012"
+folder_id = "987654321098"
+
+# Teammate projects to monitor. Each also gets seeded into the account
+# registry — see registry.py / scripts/register_project.py for self-service
+# registration after the fact.
+monitored_projects = [
+  {
+    project_id         = "dev-alice-sandbox"
+    billing_account_id = "01AB-23CD-EF45"
+    owner_email         = "alice@example.com"
+    budget_amount_usd   = 10
+    currency_code       = "USD"
+    quota_rpm_cap       = 6000
+  },
+  {
+    project_id         = "dev-bob-sandbox"
+    billing_account_id = "01AB-23CD-EF45"
+    owner_email         = "bob@example.com"
+    budget_amount_usd   = 10
+    currency_code       = "USD"
+    quota_rpm_cap       = 6000
+  },
+]
+
+enable_api_key_revoke = "false"
+enable_gke_scale_down = "false"
+firestore_location    = "nam5"

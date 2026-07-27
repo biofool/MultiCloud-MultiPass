@@ -1,0 +1,25 @@
+__pycache__/
+*.pyc
+.env
+
+.terraform/
+terraform.tfstate
+terraform.tfstate.backup
+terraform.tfvars
+*.tfplan
+.pytest_cache/
+config/accounts.yaml
+# Collected cloud auth material — NEVER commit secrets
+cloud_auth/
+cloud_auth/**
+cloud_billing_client.egg-info/
+cloud_management_client.egg-info/
+config/api_actuals.yaml
+config/api_intents.yaml
+config/kill_events.yaml
+terraform/.terraform.lock.hcl
+terraform/tfplan
+terraform/terraform.tfstate.*.backup
+
+# Audit outputs (runtime artifacts)
+data/audit/

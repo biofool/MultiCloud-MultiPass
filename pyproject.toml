@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cloud-management-client"
+version = "0.3.0"
+description = "Lightweight stdlib-only client for CloudManagement intent/actual reporting"
+requires-python = ">=3.10"
+license = {text = "AGPL-3.0-or-later"}
+authors = [{name = "Your Team"}]
+keywords = ["cloud-management", "cost-tracking", "billing", "cloud", "gcp", "kill-switch", "free-tier"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/biofool/MultiCloud-MultiPass"
+
+[project.optional-dependencies]
+# Dev tools — not required to run the service, only for tests.
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.setuptools]
+packages = ["cloud_management_client"]

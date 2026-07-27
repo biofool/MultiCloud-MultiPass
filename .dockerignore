@@ -1,0 +1,48 @@
+# Exclude everything not needed in the runtime image.
+# Without this, gcloud builds submit sends ~274MB (.venv, .git, .terraform)
+# to Cloud Build on every build.
+
+# VCS
+.git
+.gitignore
+
+# Python virtual env and caches
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+*.egg-info
+
+# Terraform state and plugins (not needed in the container)
+terraform/.terraform
+terraform/.terraform.lock.hcl
+terraform/tfplan
+terraform/tfplan.*
+terraform/terraform.tfstate
+terraform/terraform.tfstate.*
+
+# Secrets — never bake into the image
+.env
+.env.*
+*.key
+*.pem
+credentials*.json
+service-account*.json
+cloud_auth/
+
+# Runtime state files (gitignored, not needed in image)
+config/accounts.yaml
+config/api_actuals.yaml
+config/api_intents.yaml
+config/kill_events.yaml
+
+# Docs and AI config (not needed at runtime)
+docs/
+AGENTS.md
+CLAUDE.md
+README.md
+.devin/
+
+# IDE / editor
+.vscode/
+.idea/
