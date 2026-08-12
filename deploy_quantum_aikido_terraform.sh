@@ -5,9 +5,7 @@
 # Remaining arguments are passed through to scraper-intl/deploy_quantum_aikido_terraform.sh
 #
 # Example (Americas-ish UTC offsets via TZ geo-filter):
-#   ./deploy_quantum_aikido_terraform.sh terraform-test \
-#     --geo-filter='TZ:{UTC-8,UTC-7,UTC-6,UTC-5,UTC-4,UTC-9}' \
-#     --extra-args=--only-new
+#   ./deploy_quantum_aikido_terraform.sh terraform-test --geo-filter='TZ:{UTC-8,UTC-7,UTC-6,UTC-5,UTC-4,UTC-9}' --extra-args=--only-new
 #
 # Override repo location:
 #   QUANTUM_AIKIDO_REPO=/path/to/scraper-intl ./deploy_quantum_aikido_terraform.sh terraform-test --quick
