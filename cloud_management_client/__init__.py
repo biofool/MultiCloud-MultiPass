@@ -125,6 +125,7 @@ import random
 import threading
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from typing import Any
@@ -487,6 +488,11 @@ class CloudManagementClient:
         # actual (scenario 6 / issue #12).
         self._client_seq: dict[str, int] = {}
         self._seq_lock = threading.Lock()
+        # Seed the high-water mark from any entries left on disk by a previous
+        # process. Without this a restart restarts numbering at 1 for an
+        # intent that already has higher-numbered reports spooled, and the
+        # hub's "latest sequence wins" rule discards the newer report.
+        self._seed_client_seq_from_spool()
 
         # Background queue for async report_actual calls. Items are spool
         # entry IDs (or None as the stop sentinel).
@@ -510,6 +516,48 @@ class CloudManagementClient:
     # ------------------------------------------------------------------
     # Background worker for async report_actual
     # ------------------------------------------------------------------
+
+    def _seed_client_seq_from_spool(self) -> None:
+        """Initialise per-intent client_seq from un-delivered spool entries.
+
+        Spooled reports carry the client_seq assigned by the process that
+        wrote them. A fresh process must continue *above* that high-water
+        mark, otherwise its genuinely-newer cumulative actuals look stale to
+        the hub and get dropped (silent under-reporting of spend).
+
+        Seeding is strictly best-effort. It runs in ``__init__``, so it must
+        never prevent the client from being constructed: in strict mode
+        ``_Spool.list_entries``/``read`` raise on an unreadable or corrupt
+        leftover file, and a stale file in the cache directory is not a
+        reason to take the calling application down at startup. Failures are
+        logged and skipped; the worst case is that one entry does not raise
+        the high-water mark.
+        """
+        try:
+            entry_ids = self._spool.list_entries()
+        except Exception as e:
+            log.warning(
+                "cloud_management: could not list the spool to seed client_seq, "
+                "continuing without a high-water mark: %s", e
+            )
+            return
+        for entry_id in entry_ids:
+            try:
+                entry = self._spool.read(entry_id)
+                if not entry:
+                    continue
+                intent_id = (entry.get("payload") or {}).get("intent_id", "")
+                if not intent_id:
+                    continue
+                seq = int(entry.get("client_seq", 0) or 0)
+            except Exception as e:
+                log.warning(
+                    "cloud_management: skipping unreadable spool entry %s while "
+                    "seeding client_seq: %s", entry_id, e
+                )
+                continue
+            if seq > self._client_seq.get(intent_id, 0):
+                self._client_seq[intent_id] = seq
 
     def _ensure_worker(self) -> None:
         """Start the background worker thread if not already running.
@@ -629,7 +677,7 @@ class CloudManagementClient:
         if self._id_token and time.time() < self._id_token_expiry - 60:
             return self._id_token
         try:
-            audience = self.base_url
+            audience = urllib.parse.quote(self.base_url, safe="")
             url = (
                 "http://metadata.google.internal/computeMetadata/v1/instance/"
                 f"service-accounts/default/identity?audience={audience}"
@@ -649,8 +697,12 @@ class CloudManagementClient:
                         __import__("base64").urlsafe_b64decode(payload_b64)
                     )
                     self._id_token_expiry = float(payload.get("exp", 0))
-                except Exception:
+                except Exception as e:
                     # If we can't decode the expiry, assume a short lifetime.
+                    log.warning(
+                        "cloud_management: could not decode identity token expiry, "
+                        "assuming 300s: %s", e
+                    )
                     self._id_token_expiry = time.time() + 300
                 self._id_token = token
                 return token
@@ -1012,7 +1064,13 @@ class CloudManagementClient:
         if sync or not self.enabled:
             # Persist to spool before the HTTP attempt so a crash mid-send
             # doesn't lose the report. On success, remove from spool.
-            entry_id = self._spool.write("/api/v1/actual", payload, client_seq=seq)
+            # A disabled client can never deliver, so spooling would just
+            # accumulate undeliverable entries until the cap evicts them.
+            entry_id = (
+                self._spool.write("/api/v1/actual", payload, client_seq=seq)
+                if self.enabled
+                else None
+            )
             data = self._post_sync("/api/v1/actual", payload)
             if data is not None and entry_id is not None:
                 self._spool.remove(entry_id)
@@ -1064,9 +1122,9 @@ class CloudManagementClient:
         """
         if not self.enabled:
             return []
-        params = f"project_id={self.project_id}"
-        if since:
-            params += f"&since={since}"
+        params = urllib.parse.urlencode(
+            {"project_id": self.project_id, **({"since": since} if since else {})}
+        )
         data = self._get_sync(f"/api/v1/kill-orders?{params}")
         if data is None:
             return []
@@ -1227,3 +1285,4 @@ class IntentContext:
             self._reported = True
         except Exception as e:
             _fail(f"final actual report failed for {self._job_id}", e, strict=self._client.strict)
+
