@@ -440,4 +440,4 @@ The GCP footprint is **fragmented across two billing accounts, two Google accoun
 - [x] Approve the ticket list (§5.2–§5.8) and open them via GitHub.
 - [x] `your-org/your-repo-6` is superseded by WorldStudioFinder — ticket only in WorldStudioFinder.
 - [x] GCP org/billing structure discovered via gcloud — see §8.1 (fragmented, per-project IAM, two billing accounts).
-- [x] CloudManagement service will be deployed to `your-hub-project` GCP project (Cloud Run).
+- [x] CloudManagement service will be deployed to Oracle Always Free (hub runtime), with GCP for Firestore/BigQuery/Pub/Sub/Cloud Scheduler.
