@@ -524,15 +524,38 @@ class CloudManagementClient:
         wrote them. A fresh process must continue *above* that high-water
         mark, otherwise its genuinely-newer cumulative actuals look stale to
         the hub and get dropped (silent under-reporting of spend).
+
+        Seeding is strictly best-effort. It runs in ``__init__``, so it must
+        never prevent the client from being constructed: in strict mode
+        ``_Spool.list_entries``/``read`` raise on an unreadable or corrupt
+        leftover file, and a stale file in the cache directory is not a
+        reason to take the calling application down at startup. Failures are
+        logged and skipped; the worst case is that one entry does not raise
+        the high-water mark.
         """
-        for entry_id in self._spool.list_entries():
-            entry = self._spool.read(entry_id)
-            if not entry:
+        try:
+            entry_ids = self._spool.list_entries()
+        except Exception as e:
+            log.warning(
+                "cloud_management: could not list the spool to seed client_seq, "
+                "continuing without a high-water mark: %s", e
+            )
+            return
+        for entry_id in entry_ids:
+            try:
+                entry = self._spool.read(entry_id)
+                if not entry:
+                    continue
+                intent_id = (entry.get("payload") or {}).get("intent_id", "")
+                if not intent_id:
+                    continue
+                seq = int(entry.get("client_seq", 0) or 0)
+            except Exception as e:
+                log.warning(
+                    "cloud_management: skipping unreadable spool entry %s while "
+                    "seeding client_seq: %s", entry_id, e
+                )
                 continue
-            intent_id = (entry.get("payload") or {}).get("intent_id", "")
-            if not intent_id:
-                continue
-            seq = int(entry.get("client_seq", 0) or 0)
             if seq > self._client_seq.get(intent_id, 0):
                 self._client_seq[intent_id] = seq
 

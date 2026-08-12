@@ -95,6 +95,26 @@ def test_disabled_client_does_not_spool(tmp_path):
     assert glob.glob(os.path.join(str(tmp_path), "*.json")) == []
 
 
+def test_corrupt_spool_entry_does_not_break_construction(tmp_path):
+    """Seeding client_seq happens in __init__, so an unreadable leftover file
+    must not stop the client from being built.
+
+    In strict mode the spool's read/list helpers raise, which would otherwise
+    turn a stale cache file into a startup crash for the calling application.
+    """
+    first = _client(tmp_path)
+    first.report_actual(intent_id="INT-1", job_id="job", actual_calls=1, sync=True)
+    (tmp_path / "9999999999.000000_1_1.json").write_text("{not json", encoding="utf-8")
+
+    for strict in (False, True):
+        client = CloudManagementClient(
+            project_id="test-project", report_token="test-token",
+            base_url=UNREACHABLE, spool_dir=str(tmp_path), strict=strict,
+        )
+        # The good entry still raised the high-water mark despite the bad one.
+        assert client._client_seq.get("INT-1") == 1
+
+
 def test_spool_can_be_disabled(tmp_path):
     """spool_dir="" disables spooling entirely (read-only filesystems)."""
     client = CloudManagementClient(
