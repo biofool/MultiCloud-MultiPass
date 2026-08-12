@@ -32,6 +32,14 @@ GITLAB_URL="https://gitlab.com"
 GITLAB_API_BASE="$GITLAB_URL/api/v4"
 NAMESPACE="biofool-vig"
 
+# Pass values via argv rather than interpolating into a Python literal
+# (same hardening as push-to-gitlab.sh "[fix 7]").
+urlenc() { python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$1"; }
+
+# Strip the token from any command output before it reaches the terminal or
+# a log file (same redaction as push-to-gitlab.sh).
+redact() { sed "s#${GITLAB_API}#***#g"; }
+
 DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 DATE_HUMAN="$(date -u +%Y-%m-%d)"
 
@@ -58,7 +66,7 @@ echo
 create_gitlab_project() {
   local project_name="$1"
   local encoded_path
-  encoded_path=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$NAMESPACE/$project_name', safe=''))")
+  encoded_path=$(urlenc "$NAMESPACE/$project_name")
 
   # Check if it already exists
   local exists
@@ -89,7 +97,7 @@ create_gitlab_issue() {
   local title="$2"
   local body="$3"
   local encoded_path
-  encoded_path=$(python3 -c "import urllib.parse; print(urllib.parse.quote('$NAMESPACE/$project_name', safe=''))")
+  encoded_path=$(urlenc "$NAMESPACE/$project_name")
 
   curl -sS --fail \
     -H "PRIVATE-TOKEN: $GITLAB_API" \
@@ -146,7 +154,7 @@ for entry in "${REPOS[@]}"; do
     # Push using the token via the remote URL with credentials embedded.
     # We temporarily set the URL with the token, push, then restore.
     authed_url="https://oauth2:${GITLAB_API}@gitlab.com/${NAMESPACE}/${gitlab_project}.git"
-    git push "$authed_url" "$branch:refs/heads/$branch" --force-with-lease 2>&1 | sed 's/^/    /'
+    git push "$authed_url" "$branch:refs/heads/$branch" --force-with-lease 2>&1 | redact | sed 's/^/    /'
     echo "  pushed $branch"
   done
 
