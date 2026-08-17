@@ -7,6 +7,20 @@ existing ``dashboard``/``intent``/``inventory`` blueprints. Reads main's
 config flags via ``import main`` (qualified access) for the same
 live-value reason as ``killswitch_actions.py`` — see that module's
 docstring.
+
+Note on auth (post-refactor review): these routes carry no in-app
+token check, but they are not reachable without one — the Cloud Run
+service is deployed private (see terraform/iam.tf's
+``google_cloud_run_service_iam_member.invoker``), which grants
+``roles/run.invoker`` *only* to the dedicated ``killswitch-rt`` service
+account used by Cloud Scheduler's OIDC-authenticated calls
+(terraform/scheduler.tf) and Pub/Sub push. An unauthenticated caller is
+rejected by Cloud Run itself before this code ever runs. Bolting on an
+app-level shared secret here wouldn't add real defense-in-depth (it
+would just duplicate what IAM already enforces) and risks breaking
+Cloud Scheduler, which doesn't send one. Left as-is; if per-caller
+identity ever needs checking beyond Cloud Run IAM, verify the
+OIDC token's `email` claim in-app rather than adding a shared secret.
 """
 
 from __future__ import annotations

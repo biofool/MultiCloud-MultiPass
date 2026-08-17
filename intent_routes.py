@@ -1,15 +1,26 @@
 """Flask blueprint for the intent/actual reporting protocol.
 
-Split out of the original monolithic ``intent.py`` — pure structural
-move, no behavior change. Every name each handler needs (dataclasses,
-storage functions, detection functions, ``kill_intent``, ``_validate_token``,
-``log``) is imported directly by name — none of it needs the
-``_intent_mod`` qualification used in the leaf implementation modules,
-since none of these handlers read a raw env-derived config constant
-directly (they all go through function calls that handle that
+Split out of the original monolithic ``intent.py`` — structural move,
+plus one security fix on top (see below). Every name each handler needs
+(dataclasses, storage functions, detection functions, ``kill_intent``,
+``_validate_token``, ``log``) is imported directly by name — none of it
+needs the ``_intent_mod`` qualification used in the leaf implementation
+modules, since none of these handlers read a raw env-derived config
+constant directly (they all go through function calls that handle that
 internally), and several of them use ``intent`` as a local variable
 name (e.g. ``intent = get_intent(intent_id)``), which would shadow a
 module import anyway.
+
+Security fix (post-refactor review): ``get_expected_costs`` and
+``list_project_intents`` are project-scoped GET endpoints that used to
+perform no auth check at all, unlike every other route in this
+blueprint. docs/per-repo-api-specs.md has always documented
+`Authorization: Bearer <token>` as required on the expected-costs
+endpoint (and it's the same class of per-project data as
+list_project_intents/kill), so both now call ``_validate_token``
+exactly like ``declare_intent``/``report_actual``/``manual_kill``.
+``list_all_intents`` is intentionally left as-is — see its own
+docstring for why.
 """
 
 from __future__ import annotations
@@ -202,7 +213,16 @@ def report_actual():
 
 @bp.route("/api/v1/expected-costs/<project_id>", methods=["GET"])
 def get_expected_costs(project_id: str):
-    """Pull authoritative expected costs for a project."""
+    """Pull authoritative expected costs for a project.
+
+    Requires the same per-project bearer token as declare/report/kill —
+    per docs/per-repo-api-specs.md this endpoint has always been
+    documented as requiring `Authorization: Bearer <token>`; the
+    implementation was simply missing the check.
+    """
+    if not _validate_token(project_id):
+        return flask.jsonify({"error": "unauthorized"}), 401
+
     costs = list_expected_costs(project_id=project_id)
     return flask.jsonify({
         "project_id": project_id,
@@ -223,7 +243,18 @@ def get_expected_costs(project_id: str):
 
 @bp.route("/api/v1/intents", methods=["GET"])
 def list_all_intents():
-    """List active intents (for dashboard). Optional ?project_id= and ?status= filters."""
+    """List active intents (for dashboard). Optional ?project_id= and ?status= filters.
+
+    Deliberately left without a per-project bearer-token check: unlike
+    expected-costs/list_project_intents/kill (which are always scoped to
+    one project_id and part of the documented sub-project contract in
+    docs/per-repo-api-specs.md), this is a cross-project dashboard
+    listing with no single project to check a token against — the same
+    trust boundary as dashboard.py's /api/accounts, /api/summary, etc.,
+    which rely entirely on the edge auth gate in front of this service.
+    Left as-is rather than bolted onto a token model that doesn't fit;
+    flagged for a future decision if this needs its own admin auth.
+    """
     project_id = flask.request.args.get("project_id")
     status = flask.request.args.get("status")
     intents = list_intents(project_id=project_id, status=status)
@@ -235,7 +266,15 @@ def list_all_intents():
 
 @bp.route("/api/v1/intents/<project_id>", methods=["GET"])
 def list_project_intents(project_id: str):
-    """List intents for a specific project."""
+    """List intents for a specific project.
+
+    Project-scoped, like /api/v1/kill and /api/v1/expected-costs — same
+    bearer-token check applies so one project can't enumerate another's
+    intent/spend data by guessing project_id.
+    """
+    if not _validate_token(project_id):
+        return flask.jsonify({"error": "unauthorized"}), 401
+
     intents = list_intents(project_id=project_id)
     result = []
     for intent in intents:
