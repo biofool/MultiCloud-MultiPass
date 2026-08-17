@@ -77,8 +77,8 @@ actual reporting:
 Configuration via environment variables (all optional — constructor
 args take precedence):
     CLOUDMANAGEMENT_URL          Base URL of the CloudManagement service
-                                 (use the stable hostname, e.g.
-                                 https://cloud.magicsolutions.biz)
+                                 (server-to-server origin URL, e.g.
+                                 http://hub-origin.magicsolutions.biz:8080)
     CLOUDMANAGEMENT_PROJECT_ID   Default project_id for this repo
     CLOUDMANAGEMENT_REPORT_TOKEN Default report token
     CLOUDMANAGEMENT_GATE_TOKEN   Shared secret for the Cloudflare Worker auth
