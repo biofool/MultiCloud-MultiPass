@@ -1,0 +1,35 @@
+{# Split out of the original monolithic dashboard.html — pure structural move, no behavior change. #}
+      <!-- Budget thresholds -->
+      <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+        <h2 class="text-sm font-semibold text-slate-300 mb-4">Budget Thresholds</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div class="rounded-lg bg-slate-800/50 p-3 border border-slate-700/50">
+            <div class="flex items-center gap-2 mb-1">
+              <div class="w-2 h-2 rounded-full bg-emerald-500"></div>
+              <span class="text-xs font-medium text-slate-400">50% Actual</span>
+            </div>
+            <p class="text-xs text-slate-500">Early warning — monitor closely</p>
+          </div>
+          <div class="rounded-lg bg-slate-800/50 p-3 border border-slate-700/50">
+            <div class="flex items-center gap-2 mb-1">
+              <div class="w-2 h-2 rounded-full bg-amber-500"></div>
+              <span class="text-xs font-medium text-slate-400">90% Forecast</span>
+            </div>
+            <p class="text-xs text-slate-500">Forecast predicts budget breach</p>
+          </div>
+          <div class="rounded-lg bg-slate-800/50 p-3 border border-slate-700/50">
+            <div class="flex items-center gap-2 mb-1">
+              <div class="w-2 h-2 rounded-full bg-orange-500"></div>
+              <span class="text-xs font-medium text-slate-400">100% Actual</span>
+            </div>
+            <p class="text-xs text-slate-500">Budget exceeded — kill switch fires</p>
+          </div>
+          <div class="rounded-lg bg-slate-800/50 p-3 border border-slate-700/50">
+            <div class="flex items-center gap-2 mb-1">
+              <div class="w-2 h-2 rounded-full bg-red-500"></div>
+              <span class="text-xs font-medium text-slate-400">150% Actual</span>
+            </div>
+            <p class="text-xs text-slate-500">Emergency — all actions execute</p>
+          </div>
+        </div>
+      </div>

@@ -1,0 +1,19 @@
+{# Split out of the original monolithic dashboard.html — pure structural move, no behavior change. #}
+      <!-- Charts row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <!-- Daily spend chart -->
+        <div class="lg:col-span-2 rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <h2 class="text-sm font-semibold text-slate-300 mb-4">Daily Spend (Current Month)</h2>
+          <div class="h-64">
+            <canvas id="daily-chart"></canvas>
+          </div>
+        </div>
+
+        <!-- Top services -->
+        <div class="rounded-xl border border-slate-800 bg-slate-900 p-5">
+          <h2 class="text-sm font-semibold text-slate-300 mb-4">Top Services</h2>
+          <div class="h-64">
+            <canvas id="services-chart"></canvas>
+          </div>
+        </div>
+      </div>

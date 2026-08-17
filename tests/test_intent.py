@@ -269,11 +269,23 @@ class TestReportActual:
 
 class TestExpectedCosts:
     def test_get_expected_costs_empty(self, app):
-        resp = app.get("/api/v1/expected-costs/test-project")
+        resp = app.get("/api/v1/expected-costs/test-project",
+            headers={"Authorization": "Bearer test-token"},
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert data["project_id"] == "test-project"
         assert data["providers"] == {}
+
+    def test_get_expected_costs_unauthorized(self, app):
+        resp = app.get("/api/v1/expected-costs/test-project",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert resp.status_code == 401
+
+    def test_get_expected_costs_no_auth_header(self, app):
+        resp = app.get("/api/v1/expected-costs/test-project")
+        assert resp.status_code == 401
 
     def test_save_and_get_expected_costs(self, yaml_backend):
         import intent as intent_mod
@@ -312,10 +324,22 @@ class TestListIntents:
         assert data["count"] >= 2
 
     def test_list_intents_by_project(self, app):
-        resp = app.get("/api/v1/intents/test-project")
+        resp = app.get("/api/v1/intents/test-project",
+            headers={"Authorization": "Bearer test-token"},
+        )
         assert resp.status_code == 200
         data = resp.get_json()
         assert all(i["project_id"] == "test-project" for i in data["intents"])
+
+    def test_list_intents_by_project_unauthorized(self, app):
+        resp = app.get("/api/v1/intents/test-project",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert resp.status_code == 401
+
+    def test_list_intents_by_project_no_auth_header(self, app):
+        resp = app.get("/api/v1/intents/test-project")
+        assert resp.status_code == 401
 
 
 class TestManualKill:

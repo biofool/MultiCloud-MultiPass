@@ -320,7 +320,15 @@ Python 3.12-slim, copies app modules (including `paths.py`), sets `CLOUDMANAGEME
 Configuration template for all environment variables.
 
 #### `terraform/`
-- `main.tf` — BigQuery dataset, Firestore registry (+ seed documents from `monitored_projects`), Pub/Sub topic+subscription, Cloud Run service, per-project budgets, Cloud Scheduler `/poll` job, org/folder + billing-account IAM bindings
+Resources previously in a single `main.tf` are now split by resource type (Terraform loads every `*.tf` file in a directory automatically, so this is a pure reorganization):
+- `locals.tf` — computed locals (org/folder role sets, billing accounts, per-project budget targets)
+- `storage.tf` — BigQuery dataset + Firestore registry database (+ seed documents from `monitored_projects`)
+- `pubsub.tf` — Pub/Sub topic + push subscription for budget alerts
+- `iam.tf` — service account + org/folder/project/billing-account IAM bindings
+- `cloud_run.tf` — the Cloud Run kill-switch service
+- `scheduler.tf` — Cloud Scheduler `/poll`, `/poll-intents`, and `/reconcile` jobs
+- `budgets.tf` — per-project budgets + the hub project's email-only self-budget
+- `outputs.tf` — Terraform outputs
 - `variables.tf` — all configurable parameters, including `org_id`/`folder_id` and the `monitored_projects` list
 - `provider.tf` — Google provider configuration
 - `terraform.tfvars.example` — example variable values for a multi-account team
