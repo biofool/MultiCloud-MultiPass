@@ -1,0 +1,260 @@
+"""CloudManagementClient construction and background-worker lifecycle.
+
+One of several mixins that ``client.CloudManagementClient`` combines —
+split out of the original monolithic class for readability. Pure
+structural move: every method here behaves identically to before, just
+relocated. See ``client.py`` for how the mixins are assembled.
+"""
+
+from __future__ import annotations
+
+import os
+import queue
+import random
+import threading
+import time
+from typing import Any
+
+from .errors import _fail, log
+from .spool import _DEFAULT_SPOOL_DIR, _Spool
+
+
+class _LifecycleMixin:
+    """__init__, ``enabled``, and the async report_actual worker thread.
+
+    (The user-facing class docstring lives on ``CloudManagementClient``
+    itself in ``client.py`` — this mixin is an internal implementation
+    detail.)
+    """
+
+    def __init__(
+        self,
+        project_id: str = "",
+        report_token: str = "",
+        base_url: str = "",
+        source_repo: str = "",
+        application: str = "",
+        timeout: int | None = None,
+        intent_timeout: int | None = None,
+        strict: bool | None = None,
+        spool_dir: str | None = None,
+        use_identity: bool | None = None,
+        gate_token: str = "",
+    ) -> None:
+        self.project_id = project_id or os.environ.get("CLOUDMANAGEMENT_PROJECT_ID", "")
+        self.report_token = report_token or os.environ.get("CLOUDMANAGEMENT_REPORT_TOKEN", "")
+        self.base_url = (base_url or os.environ.get("CLOUDMANAGEMENT_URL", "http://127.0.0.1:8080")).rstrip("/")
+        self.gate_token = gate_token or os.environ.get("CLOUDMANAGEMENT_GATE_TOKEN", "")
+        self.source_repo = source_repo
+        # Human-readable name of the calling application (e.g. "OSenseiArchiver"),
+        # distinct from source_repo (the GitHub repo, e.g. "biofool/OSenseiDocuments").
+        # Recorded on every intent/actual report for attribution in the dashboard.
+        self.application = application or os.environ.get("CLOUDMANAGEMENT_APPLICATION", "")
+        self.timeout = timeout if timeout is not None else int(os.environ.get("CLOUDMANAGEMENT_TIMEOUT", "5"))
+        self.intent_timeout = intent_timeout if intent_timeout is not None else int(os.environ.get("CLOUDMANAGEMENT_INTENT_TIMEOUT", "3"))
+        self.strict = strict if strict is not None else os.environ.get("CLOUDMANAGEMENT_STRICT", "false").lower() == "true"
+
+        # Durable on-disk spool for report_actual (issue #12). Set
+        # CLOUDMANAGEMENT_SPOOL_DIR="" to disable (read-only filesystems).
+        if spool_dir is not None:
+            _spool_dir = spool_dir
+        else:
+            _spool_dir = os.environ.get("CLOUDMANAGEMENT_SPOOL_DIR", _DEFAULT_SPOOL_DIR)
+        self._spool = _Spool(
+            spool_dir=_spool_dir,
+            cap=int(os.environ.get("CLOUDMANAGEMENT_SPOOL_CAP", "1000")),
+            max_attempts=int(os.environ.get("CLOUDMANAGEMENT_SPOOL_MAX_ATTEMPTS", "10")),
+            max_age_seconds=float(os.environ.get("CLOUDMANAGEMENT_SPOOL_MAX_AGE_SECONDS", "86400")),
+            strict=self.strict,
+        )
+
+        # Identity-token mode (issue #10): when True, the client fetches a GCP
+        # OIDC ID token from the metadata server scoped to base_url and sends
+        # it as the bearer credential instead of a shared report_token. This
+        # eliminates the need to create/distribute/rotate a shared secret for
+        # GCP-resident clients. Falls back to report_token if the metadata
+        # server is unreachable (local dev, OpenStack).
+        if use_identity is not None:
+            self.use_identity = use_identity
+        else:
+            self.use_identity = os.environ.get("CLOUDMANAGEMENT_USE_IDENTITY", "false").lower() == "true"
+        self._id_token: str | None = None
+        self._id_token_expiry: float = 0.0
+
+        # Per-intent monotonic client_seq — stamped into each report so the
+        # hub can reject stale replays that would overwrite a newer cumulative
+        # actual (scenario 6 / issue #12).
+        self._client_seq: dict[str, int] = {}
+        self._seq_lock = threading.Lock()
+        # Seed the high-water mark from any entries left on disk by a previous
+        # process. Without this a restart restarts numbering at 1 for an
+        # intent that already has higher-numbered reports spooled, and the
+        # hub's "latest sequence wins" rule discards the newer report.
+        self._seed_client_seq_from_spool()
+
+        # Background queue for async report_actual calls. Items are spool
+        # entry IDs (or None as the stop sentinel).
+        self._queue: queue.Queue[str | None] = queue.Queue()
+        self._worker: threading.Thread | None = None
+        self._worker_lock = threading.Lock()
+        # Transient in-memory entries for when the spool is disabled.
+        self._inline_entries: dict[str, dict[str, Any]] = {}
+
+        if not self.project_id:
+            log.warning("cloud_management: project_id not set — client disabled")
+        if not self.report_token and not self.use_identity:
+            log.warning("cloud_management: report_token not set and use_identity=False — client disabled")
+
+    @property
+    def enabled(self) -> bool:
+        # In identity mode, the token is fetched at request time from the
+        # metadata server, so report_token is not required.
+        return bool(self.project_id and (self.report_token or self.use_identity))
+
+    # ------------------------------------------------------------------
+    # Background worker for async report_actual
+    # ------------------------------------------------------------------
+
+    def _seed_client_seq_from_spool(self) -> None:
+        """Initialise per-intent client_seq from un-delivered spool entries.
+
+        Spooled reports carry the client_seq assigned by the process that
+        wrote them. A fresh process must continue *above* that high-water
+        mark, otherwise its genuinely-newer cumulative actuals look stale to
+        the hub and get dropped (silent under-reporting of spend).
+
+        Seeding is strictly best-effort. It runs in ``__init__``, so it must
+        never prevent the client from being constructed: in strict mode
+        ``_Spool.list_entries``/``read`` raise on an unreadable or corrupt
+        leftover file, and a stale file in the cache directory is not a
+        reason to take the calling application down at startup. Failures are
+        logged and skipped; the worst case is that one entry does not raise
+        the high-water mark.
+        """
+        try:
+            entry_ids = self._spool.list_entries()
+        except Exception as e:
+            log.warning(
+                "cloud_management: could not list the spool to seed client_seq, "
+                "continuing without a high-water mark: %s", e
+            )
+            return
+        for entry_id in entry_ids:
+            try:
+                entry = self._spool.read(entry_id)
+                if not entry:
+                    continue
+                intent_id = (entry.get("payload") or {}).get("intent_id", "")
+                if not intent_id:
+                    continue
+                seq = int(entry.get("client_seq", 0) or 0)
+            except Exception as e:
+                log.warning(
+                    "cloud_management: skipping unreadable spool entry %s while "
+                    "seeding client_seq: %s", entry_id, e
+                )
+                continue
+            if seq > self._client_seq.get(intent_id, 0):
+                self._client_seq[intent_id] = seq
+
+    def _ensure_worker(self) -> None:
+        """Start the background worker thread if not already running.
+
+        Also replays any spool entries left by a previous process — this is
+        the headline scenario for issue #12 (test_spool_survives_process_restart).
+        """
+        if self._worker is not None and self._worker.is_alive():
+            return
+        with self._worker_lock:
+            if self._worker is not None and self._worker.is_alive():
+                return
+            # Replay spool entries from a previous process before starting
+            # the worker, so they are processed in order.
+            for entry_id in self._spool.list_entries():
+                self._queue.put(entry_id)
+            self._worker = threading.Thread(
+                target=self._worker_loop,
+                name="cloud-management-reporter",
+                daemon=True,
+            )
+            self._worker.start()
+
+    def _sleep(self, seconds: float) -> None:
+        """Indirection so tests can mock sleep without actually waiting."""
+        time.sleep(seconds)
+
+    def _worker_loop(self) -> None:
+        """Process queued report_actual requests with spool-backed retry."""
+        while True:
+            entry_id = self._queue.get()
+            if entry_id is None:
+                # Sentinel — signal to stop
+                self._queue.task_done()
+                break
+            try:
+                self._process_spool_entry(entry_id)
+            except Exception as e:
+                _fail("async report_actual failed", e, strict=self.strict)
+            finally:
+                self._queue.task_done()
+
+    def _process_spool_entry(self, entry_id: str) -> None:
+        """Attempt to deliver a spool entry, retrying with backoff on failure.
+
+        Handles both on-disk spool entries and transient in-memory entries
+        (used when the spool is disabled).
+        """
+        # Inline (spool disabled) — single attempt, no retry.
+        if entry_id.startswith("inline_"):
+            entry = self._inline_entries.pop(entry_id, None)
+            if entry is None:
+                return
+            self._post_sync(entry["path"], entry["payload"])
+            return
+
+        entry = self._spool.read(entry_id)
+        if entry is None:
+            return  # entry was lost or corrupted — nothing to deliver
+        attempts = entry.get("attempts", 0)
+        while True:
+            data = self._post_sync(entry["path"], entry["payload"])
+            if data is not None:
+                # Confirmed delivery — remove from spool.
+                self._spool.remove(entry_id)
+                return
+            attempts += 1
+            self._spool.update_attempt(entry_id, attempts)
+            if self._spool.is_expired({**entry, "attempts": attempts}):
+                self._spool.drop(entry_id, f"max attempts ({attempts}) or max age exceeded")
+                return
+            # Exponential backoff with jitter: base * 2^(attempts-1) + random
+            backoff = min(1.0 * (2 ** (attempts - 1)) + random.uniform(0, 1), 60.0)
+            self._sleep(backoff)
+
+    def flush(self, timeout: float = 5.0) -> None:
+        """Wait for all pending async report_actual calls to complete.
+
+        Blocks until the queue is drained or ``timeout`` seconds elapse.
+        If the timeout expires, pending reports are NOT lost — they remain
+        in the on-disk spool and are replayed on the next client startup
+        (issue #12). The daemon worker thread will also continue processing
+        them if the process stays alive.
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            # all_tasks_done is an internal Condition; wait briefly
+            if self._queue.all_tasks_done.acquire(timeout=0.1):
+                try:
+                    if self._queue.unfinished_tasks == 0:
+                        return
+                finally:
+                    self._queue.all_tasks_done.release()
+            else:
+                continue
+        # Timeout expired — pending items remain in the spool for replay
+
+    def close(self) -> None:
+        """Signal the background worker to stop and wait briefly."""
+        self._queue.put(None)
+        if self._worker is not None:
+            self._worker.join(timeout=2.0)
