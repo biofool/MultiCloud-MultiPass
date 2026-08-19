@@ -43,8 +43,8 @@ else
     TF_ABS="$(cd "$REPO/$TFD" && pwd)"
 fi
 
-if [[ ! -f "$TF_ABS/main.tf" ]]; then
-    echo "Error: expected main.tf under: $TF_ABS"
+if ! compgen -G "$TF_ABS/*.tf" > /dev/null; then
+    echo "Error: expected at least one *.tf file under: $TF_ABS"
     exit 1
 fi
 

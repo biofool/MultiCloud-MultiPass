@@ -207,7 +207,10 @@ def test_async_report_and_flush():
 def test_version():
     """Verify the package exposes a version string."""
     assert __version__, "package should expose __version__"
-    assert __version__ >= "0.2.0", f"version should be >= 0.2.0, got {__version__}"
+    # Compare parsed version tuples, not strings — "0.12.0" >= "0.2.0" is
+    # False lexicographically, which broke this assertion at v0.12.0.
+    parsed = tuple(int(part) for part in __version__.split(".")[:3])
+    assert parsed >= (0, 2, 0), f"version should be >= 0.2.0, got {__version__}"
     print(f"  [ OK] version: {__version__}")
 
 
@@ -232,3 +235,4 @@ if __name__ == "__main__":
     test_async_report_and_flush()
     test_unauthorized()
     print("\n  All client tests passed.")
+

@@ -39,6 +39,10 @@ NAMESPACE="biofool-vig"
 # string literal — that is a command-injection vector).
 urlenc() { python3 -c 'import sys,urllib.parse;print(urllib.parse.quote(sys.argv[1],safe=""))' "$1"; }
 
+# Strip the token from any command output before it reaches the terminal or
+# a log file (same redaction as push-to-gitlab.sh).
+redact() { sed "s#${GITLAB_API}#***#g"; }
+
 DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 DATE_HUMAN="$(date -u +%Y-%m-%d)"
 
@@ -201,8 +205,10 @@ for entry in "${REPOS[@]}"; do
       continue
     fi
     echo "  Pushing $branch ..."
+    # authed_url (set above) embeds the token for this push only; redact keeps
+    # it out of the terminal and any log. git -C avoids depending on cwd.
     git -C "$repo_path" push "$authed_url" "$branch:refs/heads/$branch" --force-with-lease 2>&1 \
-      | sed "s#$GITLAB_API#***#g" | sed 's/^/    /'
+      | redact | sed 's/^/    /'
     echo "  pushed $branch"
   done
 
