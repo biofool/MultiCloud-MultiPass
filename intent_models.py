@@ -83,6 +83,7 @@ class Actual:
     started_at: str = ""
     ended_at: str = ""
     sequence: int = 0           # for incremental reports
+    client_seq: int = 0         # monotonic per-intent client sequence (issue #1 part 2)
     reconciled_cost_usd: float | None = None
     reconciled_at: str | None = None
     created_at: str = ""
@@ -106,6 +107,7 @@ class Actual:
             started_at=d.get("started_at", ""),
             ended_at=d.get("ended_at", ""),
             sequence=int(d.get("sequence", 0)),
+            client_seq=int(d.get("client_seq", 0)),
             reconciled_cost_usd=d.get("reconciled_cost_usd"),
             reconciled_at=d.get("reconciled_at"),
             created_at=d.get("created_at", ""),

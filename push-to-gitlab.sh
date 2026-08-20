@@ -104,7 +104,14 @@ for entry in "${REPOS[@]}"; do
   fi
 
   clean_url="$GITLAB_URL/$NAMESPACE/$project.git"
-  authed_url="https://oauth2:${GITLAB_API}@gitlab.com/${NAMESPACE}/${project}.git"
+  # Token passed via GIT_ASKPASS (issue #1 part 5) — not in the URL,
+  # so it does not appear in `ps` output or in git's remote URL storage.
+  askpass_script=$(mktemp /tmp/gitlab-askpass.XXXXXX.sh)
+  printf '#!/usr/bin/env bash\necho "%s"\n' "$GITLAB_API" > "$askpass_script"
+  chmod 700 "$askpass_script"
+  # shellcheck disable=SC2064  # intentional: expand $askpass_script now
+  trap "rm -f '$askpass_script'" EXIT
+  push_url="https://oauth2@gitlab.com/${NAMESPACE}/${project}.git"
 
   nbranches=$(git -C "$repo_dir" branch --format='%(refname:short)' | wc -l | tr -d ' ')
   if [[ "$DRY_RUN" == "1" ]]; then
@@ -113,11 +120,13 @@ for entry in "${REPOS[@]}"; do
   else
     echo "  pushing $nbranches branches + tags ..."
 
-    git -C "$repo_dir" push "$authed_url" --all 2>&1 \
+    GIT_ASKPASS="$askpass_script" GIT_TERMINAL_PROMPT=0 \
+      git -C "$repo_dir" push "$push_url" --all 2>&1 \
       | sed "s#$GITLAB_API#***#g" | sed 's/^/    /'
     all_rc=${PIPESTATUS[0]}
 
-    git -C "$repo_dir" push "$authed_url" --tags 2>&1 \
+    GIT_ASKPASS="$askpass_script" GIT_TERMINAL_PROMPT=0 \
+      git -C "$repo_dir" push "$push_url" --tags 2>&1 \
       | sed "s#$GITLAB_API#***#g" | sed 's/^/    /'
     tag_rc=${PIPESTATUS[0]}
 
@@ -130,6 +139,7 @@ for entry in "${REPOS[@]}"; do
       OK+=("$local_path -> $NAMESPACE/$project")
     fi
   fi
+  rm -f "$askpass_script"
 
   # [fix 5] only claim the clean remote was set if it actually succeeded.
   # In dry-run we leave the remote untouched.

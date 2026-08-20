@@ -83,11 +83,13 @@ def check_project_budget(project_id: str) -> dict[str, Any] | None:
         if a.created_at and a.created_at.startswith(current_month_prefix)
     ]
 
-    # Group by intent_id and take the latest (highest sequence) per intent
+    # Group by intent_id and take the latest per intent. client_seq is
+    # the client's monotonic per-intent counter (issue #1 part 2);
+    # fall back to sequence for older clients that don't stamp it.
     by_intent: dict[str, Actual] = {}
     for a in month_actuals:
         existing = by_intent.get(a.intent_id)
-        if existing is None or a.sequence > existing.sequence:
+        if existing is None or (a.client_seq, a.sequence) > (existing.client_seq, existing.sequence):
             by_intent[a.intent_id] = a
 
     total_spend = sum(a.actual_cost_usd for a in by_intent.values())
