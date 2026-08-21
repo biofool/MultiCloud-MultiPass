@@ -156,6 +156,13 @@ def sum_actuals_for_intent(intent_id: str) -> dict[str, Any]:
     Clients send cumulative totals (running total of calls/cost), not
     deltas.  Summing all reports would double-count.  The latest report
     by sequence number is the authoritative cumulative value.
+
+    ``client_seq`` (issue #1 part 2): the client stamps a monotonic
+    per-intent ``client_seq`` on each report so stale replays that would
+    overwrite a newer cumulative actual are rejected. The hub enforces
+    this by picking the report with the highest ``client_seq`` (falling
+    back to ``sequence`` when ``client_seq`` is absent or tied, for
+    backward compatibility with older clients that don't stamp it).
     """
     actuals = list_actuals(intent_id=intent_id)
     if not actuals:
@@ -166,8 +173,10 @@ def sum_actuals_for_intent(intent_id: str) -> dict[str, Any]:
             "status": "declared",
             "report_count": 0,
         }
-    # list_actuals orders by sequence; take the latest
-    latest = actuals[-1]
+    # Pick the latest by client_seq (issue #1 part 2), falling back to
+    # sequence for backward compat with older clients. list_actuals
+    # already sorts by sequence, so ties break correctly.
+    latest = max(actuals, key=lambda a: (a.client_seq, a.sequence))
     return {
         "actual_calls": latest.actual_calls,
         "actual_cost_usd": latest.actual_cost_usd,

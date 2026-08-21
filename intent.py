@@ -13,6 +13,11 @@ Endpoints (Flask blueprint, registered in main.py):
   GET  /api/v1/intents                    — list active intents (dashboard)
   GET  /api/v1/intents/<project_id>       — list intents for a project
   POST /api/v1/kill/<intent_id>           — manual kill override (dashboard)
+  GET  /api/v1/budget/<project_id>        — read-only budget status (issue #1)
+  POST /api/v1/budget/<project_id>        — budget admission decision (issue #1)
+  GET  /api/v1/intent/<intent_id>         — fetch single intent by ID (issue #1)
+  GET  /api/v1/kill-orders                — client-polled kill orders (issue #1)
+  POST /api/v1/exposure                   — report key exposure for rotation (issue #1)
 
 Data stores (Firestore in production, YAML files in dev/test):
   api_intents     — one doc per intent declaration

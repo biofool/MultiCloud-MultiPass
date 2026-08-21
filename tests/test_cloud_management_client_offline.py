@@ -123,3 +123,76 @@ def test_spool_can_be_disabled(tmp_path):
     )
     client.report_actual(intent_id="Y", job_id="job", actual_calls=1, sync=True)
     assert glob.glob(os.path.join(str(tmp_path), "*.json")) == []
+
+
+# ---------------------------------------------------------------------------
+# Issue #1 parts 3-4: permanent failure handling and head-of-line blocking
+# ---------------------------------------------------------------------------
+
+def test_is_permanent_error_classifies_http_codes():
+    """4xx (except 408/429) are permanent; 5xx and connection errors are not."""
+    import urllib.error
+    from cloud_management_client._transport import _is_permanent_error
+
+    # Permanent: 400, 401, 403, 404
+    for code in (400, 401, 403, 404):
+        exc = urllib.error.HTTPError("url", code, "msg", {}, None)
+        assert _is_permanent_error(exc) is True, f"{code} should be permanent"
+
+    # Transient: 408, 429, 500, 502, 503
+    for code in (408, 429, 500, 502, 503):
+        exc = urllib.error.HTTPError("url", code, "msg", {}, None)
+        assert _is_permanent_error(exc) is False, f"{code} should be transient"
+
+    # Connection errors are transient
+    assert _is_permanent_error(urllib.error.URLError("conn refused")) is False
+    assert _is_permanent_error(Exception("random")) is False
+
+
+def test_permanent_failure_drops_spool_entry(tmp_path):
+    """A 4xx failure should drop the spool entry immediately, not retry 10 times."""
+    import urllib.error
+    from unittest.mock import patch, MagicMock
+    from cloud_management_client.client import CloudManagementClient
+
+    client = CloudManagementClient(
+        project_id="test-proj",
+        report_token="test-token",
+        base_url="http://127.0.0.1:9999",
+        spool_dir=str(tmp_path / "spool"),
+    )
+    # Mock _post_sync_with_error to return a 401 permanent failure
+    exc = urllib.error.HTTPError("url", 401, "Unauthorized", {}, None)
+    with patch.object(client, "_post_sync_with_error", return_value=(None, exc)):
+        entry_id = client._spool.write("/api/v1/actual", {"intent_id": "int_1", "project_id": "test-proj"})
+        client._process_spool_entry(entry_id)
+        # Entry should be dropped (removed from spool)
+        assert client._spool.read(entry_id) is None, "permanent failure should drop spool entry"
+    client.close()
+
+
+def test_transient_failure_re_enqueues_with_due_time(tmp_path):
+    """A transient failure should re-enqueue the entry with a due-time, not sleep inline."""
+    import urllib.error
+    from unittest.mock import patch
+    from cloud_management_client.client import CloudManagementClient
+
+    client = CloudManagementClient(
+        project_id="test-proj",
+        report_token="test-token",
+        base_url="http://127.0.0.1:9999",
+        spool_dir=str(tmp_path / "spool"),
+    )
+    # Mock _post_sync_with_error to return a 503 transient failure
+    exc = urllib.error.HTTPError("url", 503, "Service Unavailable", {}, None)
+    with patch.object(client, "_post_sync_with_error", return_value=(None, exc)):
+        entry_id = client._spool.write("/api/v1/actual", {"intent_id": "int_2", "project_id": "test-proj"})
+        client._process_spool_entry(entry_id)
+        # Entry should still be in the spool (not dropped)
+        assert client._spool.read(entry_id) is not None, "transient failure should keep spool entry"
+        # A retry tuple should be in the queue
+        item = client._queue.get_nowait()
+        assert isinstance(item, tuple), "retry should be enqueued as (entry_id, due_time) tuple"
+        assert item[0] == entry_id
+        assert item[1] > 0  # due_time is a monotonic timestamp
+    client.close()

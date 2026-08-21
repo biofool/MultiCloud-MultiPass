@@ -2,9 +2,14 @@
 auth and the synchronous GET/POST helpers used by every API method.
 
 One of several mixins that ``client.CloudManagementClient`` combines —
-split out of the original monolithic class for readability. Pure
-structural move: every method here behaves identically to before, just
-relocated. See ``client.py`` for how the mixins are assembled.
+split out of the original monolithic class for readability. See
+``client.py`` for how the mixins are assembled.
+
+Issue #1 parts 3-4: ``_post_sync`` and ``_get_sync`` now distinguish
+permanent failures (HTTP 4xx except 408/429) from transient ones (5xx,
+connection errors, 408, 429) via the ``_PERMANENT_HTTP_CODES`` set.
+Callers that retry (the spool worker) use ``_is_permanent_error`` to
+skip retrying reports that can never succeed.
 """
 
 from __future__ import annotations
@@ -17,6 +22,25 @@ import urllib.request
 from typing import Any
 
 from .errors import _fail, log
+
+# HTTP status codes that indicate a permanent failure — retrying won't
+# help. 408 (Request Timeout) and 429 (Too Many Requests) are transient
+# despite being 4xx. See issue #1 part 4.
+_PERMANENT_HTTP_CODES = frozenset(
+    {400, 401, 403, 404, 405, 409, 410, 411, 412, 413, 414, 415, 422}
+)
+
+
+def _is_permanent_error(exc: Exception) -> bool:
+    """Return True if ``exc`` is an HTTPError with a permanent status code.
+
+    Used by the spool worker to skip retrying reports that can never
+    succeed (e.g. 400 Bad Request, 401 Unauthorized, 403 Forbidden).
+    Connection errors and 5xx/408/429 are transient and will be retried.
+    """
+    if isinstance(exc, urllib.error.HTTPError):
+        return exc.code in _PERMANENT_HTTP_CODES
+    return False
 
 
 class _TransportMixin:
@@ -102,9 +126,25 @@ class _TransportMixin:
         return {}
 
     def _post_sync(self, path: str, payload: dict[str, Any], timeout: int | None = None) -> dict[str, Any] | None:
-        """Synchronous HTTP POST. Returns parsed JSON or None on error."""
+        """Synchronous HTTP POST. Returns parsed JSON or None on error.
+
+        On failure, the exception is stored in ``self._last_exc`` so the
+        spool worker can check ``_is_permanent_error`` to decide whether
+        to retry (issue #1 part 4).
+        """
+        data, exc = self._post_sync_with_error(path, payload, timeout=timeout)
+        self._last_exc = exc
+        return data
+
+    def _post_sync_with_error(self, path: str, payload: dict[str, Any], timeout: int | None = None) -> tuple[dict[str, Any] | None, Exception | None]:
+        """Synchronous HTTP POST. Returns (parsed JSON or None, exception or None).
+
+        On success the exception is None. On failure the data is None and
+        the exception is the raised error — the caller can inspect it
+        with ``_is_permanent_error`` to decide whether to retry.
+        """
         if not self.enabled:
-            return None
+            return None, None
         url = f"{self.base_url}{path}"
         body = json.dumps(payload).encode("utf-8")
         headers = {
@@ -121,7 +161,7 @@ class _TransportMixin:
         t = timeout if timeout is not None else self.timeout
         try:
             with urllib.request.urlopen(req, timeout=t) as resp:
-                return json.loads(resp.read().decode("utf-8"))
+                return json.loads(resp.read().decode("utf-8")), None
         except urllib.error.HTTPError as e:
             err_body = ""
             try:
@@ -129,13 +169,13 @@ class _TransportMixin:
             except Exception:
                 pass
             _fail(f"POST {path} failed (HTTP {e.code}): {err_body}", strict=self.strict)
-            return None
+            return None, e
         except urllib.error.URLError as e:
             _fail(f"POST {path} connection error", e, strict=self.strict)
-            return None
+            return None, e
         except Exception as e:
             _fail(f"POST {path} unexpected error", e, strict=self.strict)
-            return None
+            return None, e
 
     def _get_sync(self, path: str, timeout: int | None = None) -> dict[str, Any] | None:
         """Synchronous HTTP GET. Returns parsed JSON or None on error."""
