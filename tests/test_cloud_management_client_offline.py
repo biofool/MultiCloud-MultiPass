@@ -196,3 +196,21 @@ def test_transient_failure_re_enqueues_with_due_time(tmp_path):
         assert item[0] == entry_id
         assert item[1] > 0  # due_time is a monotonic timestamp
     client.close()
+
+
+def test_two_worker_threads_started(tmp_path):
+    """_ensure_worker must start 2 worker threads so retries on one entry
+    don't head-of-line-block delivery of others (issue #1)."""
+    from cloud_management_client.client import CloudManagementClient
+
+    client = CloudManagementClient(
+        project_id="test-proj",
+        report_token="test-token",
+        base_url="http://127.0.0.1:9999",
+        spool_dir=str(tmp_path / "spool"),
+    )
+    assert client._workers == [], "no workers before _ensure_worker"
+    client._ensure_worker()
+    assert len(client._workers) == 2, "exactly 2 worker threads should be started"
+    assert all(w.is_alive() for w in client._workers), "both workers should be alive"
+    client.close()
