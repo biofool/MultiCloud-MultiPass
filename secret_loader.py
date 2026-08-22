@@ -39,6 +39,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import threading
 import time
 from typing import Any
 
@@ -58,35 +59,41 @@ _NEG_TTL = int(os.environ.get("SECRET_LOADER_NEG_CACHE_TTL", "30"))
 
 _cache: dict[str, tuple[str, float]] = {}
 _neg_cache: dict[str, float] = {}
+_cache_lock = threading.Lock()
 
 
 def _cache_get(name: str) -> str | None:
-    entry = _cache.get(name)
-    if entry and entry[1] > time.time():
-        return entry[0]
+    with _cache_lock:
+        entry = _cache.get(name)
+        if entry and entry[1] > time.time():
+            return entry[0]
     return None
 
 
 def _cache_set(name: str, value: str) -> None:
-    _cache[name] = (value, time.time() + _CACHE_TTL)
+    with _cache_lock:
+        _cache[name] = (value, time.time() + _CACHE_TTL)
 
 
 def _neg_cache_get(name: str) -> bool:
-    expiry = _neg_cache.get(name)
-    return expiry is not None and expiry > time.time()
+    with _cache_lock:
+        expiry = _neg_cache.get(name)
+        return expiry is not None and expiry > time.time()
 
 
 def _neg_cache_set(name: str) -> None:
-    _neg_cache[name] = time.time() + _NEG_TTL
+    with _cache_lock:
+        _neg_cache[name] = time.time() + _NEG_TTL
 
 
 def invalidate_cache(name: str | None = None) -> None:
-    if name:
-        _cache.pop(name, None)
-        _neg_cache.pop(name, None)
-    else:
-        _cache.clear()
-        _neg_cache.clear()
+    with _cache_lock:
+        if name:
+            _cache.pop(name, None)
+            _neg_cache.pop(name, None)
+        else:
+            _cache.clear()
+            _neg_cache.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +126,13 @@ def _sm_access(name: str) -> str:
             )
         resource = f"projects/{project}/secrets/{name}/versions/latest"
     resp = client.access_secret_version(name=resource)
-    return resp.payload.data.decode("utf-8").strip()
+    # Only strip a single trailing newline (common from echo piping).
+    # Full .strip() would corrupt secrets that legitimately contain
+    # leading/trailing whitespace (e.g. private keys with trailing newlines).
+    value = resp.payload.data.decode("utf-8")
+    if value.endswith("\n"):
+        value = value[:-1]
+    return value
 
 
 # ---------------------------------------------------------------------------
