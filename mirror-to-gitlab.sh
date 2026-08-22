@@ -189,15 +189,9 @@ for entry in "${REPOS[@]}"; do
     echo "  Added 'gitlab' remote -> $gitlab_remote_url"
   fi
 
-  # 3. Push each branch. Token is passed via GIT_ASKPASS (issue #1 part 5)
-  #    so it does NOT appear in the push URL or in `ps` output. The askpass
-  #    helper is a one-line script that echoes the token when git asks for
-  #    a password. Output is scrubbed via redact() as defense-in-depth.
-  clean_push_url="https://gitlab.com/${NAMESPACE}/${gitlab_project}.git"
-  askpass_script=$(mktemp /tmp/gitlab-askpass.XXXXXX.sh)
-  printf '#!/usr/bin/env bash\necho "%s"\n' "$GITLAB_API" > "$askpass_script"
-  chmod 700 "$askpass_script"
-  trap 'rm -f "$askpass_script"' EXIT
+  # 3. Push each branch (token embedded in the push URL only; output is
+  #    scrubbed so the token can never leak via a git error message).
+  authed_url="https://oauth2:${GITLAB_API}@gitlab.com/${NAMESPACE}/${gitlab_project}.git"
   # shellcheck disable=SC2206  # intentional word-splitting of space-sep list
   read -ra branch_arr <<< "$branches"
   for branch in "${branch_arr[@]}"; do
@@ -211,16 +205,12 @@ for entry in "${REPOS[@]}"; do
       continue
     fi
     echo "  Pushing $branch ..."
-    # GIT_ASKPASS feeds the token to git without embedding it in the URL
-    # or in argv (the token is in the askpass script file, mode 700).
-    GIT_ASKPASS="$askpass_script" GIT_TERMINAL_PROMPT=0 \
-      git -C "$repo_path" \
-      push "https://oauth2@gitlab.com/${NAMESPACE}/${gitlab_project}.git" \
-      "$branch:refs/heads/$branch" --force-with-lease 2>&1 \
+    # authed_url (set above) embeds the token for this push only; redact keeps
+    # it out of the terminal and any log. git -C avoids depending on cwd.
+    git -C "$repo_path" push "$authed_url" "$branch:refs/heads/$branch" --force-with-lease 2>&1 \
       | redact | sed 's/^/    /'
     echo "  pushed $branch"
   done
-  rm -f "$askpass_script"
 
   # 4. Restore clean remote URL (no embedded token)
   git -C "$repo_path" remote set-url gitlab "$gitlab_remote_url"
