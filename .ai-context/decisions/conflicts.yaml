@@ -1,0 +1,108 @@
+# Conflicts Register — MultiCloud-MultiPass
+# Contradictions between declared claims and observed behavior/evidence.
+# Revision: e65660aca996d3aaa5cf22dd2686afa398700f55 (main)
+
+- id: CONFLICT-001
+  summary: "Client package version: pyproject.toml says 0.3.0, __init__.py says 0.12.0"
+  declared_claim:
+    statement: "cloud-management-client version is 0.3.0"
+    source: pyproject.toml
+    evidence_type: config
+    lines: "7"
+  observed_behavior:
+    statement: "cloud_management_client.__version__ is 0.12.0; all tests, code comments, and context artifacts reference v0.12.0"
+    source: cloud_management_client/__init__.py
+    evidence_type: source
+    lines: "137"
+  resolution: UNKNOWN
+  resolution_evidence: |
+    The pyproject.toml version appears stale or was reset during the fork
+    from CloudManagement. The __init__.py version (0.12.0) is the one
+    used at runtime by clients checking compatibility (see
+    test_cloud_management_client.py:210-211 which compares parsed
+    version tuples). pyproject.toml version only matters for pip
+    packaging metadata.
+  impact_if_agent_trusts_wrong_side: |
+    If an agent trusts pyproject.toml (0.3.0), it may believe the client
+    is an older version and skip features added in 0.4.0–0.12.0 (spool,
+    client_seq, identity mode, gate token, exposure reporting). If an
+    agent trusts __init__.py (0.12.0), it correctly reflects runtime
+    behavior but pip install would still record 0.3.0 in package
+    metadata, causing confusion for downstream consumers.
+
+- id: CONFLICT-002
+  summary: "Repo identity: CLAUDE.md/AGENTS.md title says 'CloudManagement', repo is MultiCloud-MultiPass"
+  declared_claim:
+    statement: "This project is CloudManagement — multi-cloud cost kill switch and intent/actual reporting hub"
+    source: CLAUDE.md
+    evidence_type: doc
+    lines: "7"
+  observed_behavior:
+    statement: "Repository is MultiCloud-MultiPass (github.com/biofool/MultiCloud-MultiPass), the public open-source fork of CloudManagement. pyproject.toml Homepage URL confirms MultiCloud-MultiPass."
+    source: pyproject.toml
+    evidence_type: config
+    lines: "25"
+  resolution: UNKNOWN
+  resolution_evidence: |
+    Per the parent workspace CLAUDE.md: 'MultiCloud-MultiPass is the
+    open-source fork of CloudManagement/ — same multi-cloud cost kill
+    switch + intent/actual reporting, published publicly. Downstream of
+    CloudManagement, which pushes to it via its multipass remote. Its
+    CLAUDE.md still titles itself CloudManagement, a fork artifact
+    rather than a separate system.' The AGENTS.md also has a
+    'Project-specific: CloudManagement' section header.
+  impact_if_agent_trusts_wrong_side: |
+    If an agent trusts the CLAUDE.md title, it may believe it's working
+    in the canonical/upstream CloudManagement repo and make changes that
+    should go there instead. The parent CLAUDE.md states: 'New work on
+    this system goes here [CloudManagement], not in the fork.' An agent
+    in MultiCloud-MultiPass should understand it's in the downstream
+    fork and that CloudManagement is canonical.
+
+- id: CONFLICT-003
+  summary: "TEST_PLAN.md title says 'MultiCloud-MultiPass-gitlab' but repo is MultiCloud-MultiPass (GitHub)"
+  declared_claim:
+    statement: "Test Plan — MultiCloud-MultiPass-gitlab"
+    source: TEST_PLAN.md
+    evidence_type: doc
+    lines: "1"
+  observed_behavior:
+    statement: "Repo origin is github.com/biofool/MultiCloud-MultiPass. The -gitlab suffix refers to the GitLab mirror (biofool-vig/MultiCloud-MultiPass-gitlab), not the repo itself."
+    source: pyproject.toml
+    evidence_type: config
+    lines: "25"
+  resolution: UNKNOWN
+  resolution_evidence: |
+    The TEST_PLAN.md was likely written during a GitLab-based test pass
+    (it references reconstructing the dev branch from GitLab REST API).
+    The -gitlab suffix is a naming artifact from the mirror convention,
+    not the actual repo name.
+  impact_if_agent_trusts_wrong_side: |
+    Low impact — an agent might be confused about which remote is
+    canonical. The title is cosmetic; the test plan content itself is
+    accurate for the codebase.
+
+- id: CONFLICT-004
+  summary: "manifest.yaml references 7 artifact files that do not exist on disk"
+  declared_claim:
+    statement: "Artifacts at conventions/coding-patterns.md, conventions/errors.md, conventions/persistence.md, conventions/configuration.md, conventions/observability.md, decisions/architecture-decisions.md, decisions/conflicts.yaml exist with source_paths and last_verified_revision"
+    source: .ai-context/manifest.yaml
+    evidence_type: analysis
+    lines: "99-122"
+  observed_behavior:
+    statement: "The conventions/ and decisions/ directories exist but are empty. None of the 7 referenced files exist on disk. workflows/reconciliation.md is also referenced but missing."
+    source: filesystem
+    evidence_type: config
+  resolution: UNKNOWN
+  resolution_evidence: |
+    The manifest was likely created as a complete plan, but only a
+    subset of artifacts were actually written. The index.md navigation
+    table links to these files, which would be broken links. This
+    analysis pass creates decisions/conflicts.yaml (resolving one of the
+    7), but conventions/ files and architecture-decisions.md remain
+    missing.
+  impact_if_agent_trusts_wrong_side: |
+    If an agent follows index.md navigation links to conventions/ or
+    decisions/architecture-decisions.md, it will hit 404/broken links
+    and lose context. The manifest's claim of full coverage is
+    misleading — coverage is partial.

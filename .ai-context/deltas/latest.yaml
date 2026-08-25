@@ -1,0 +1,96 @@
+# Context Delta — MultiCloud-MultiPass
+# Initial compilation: all artifacts added in this pass.
+# Revision: e65660aca996d3aaa5cf22dd2686afa398700f55 (main)
+
+from_revision: null
+to_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+
+added:
+  # Pre-existing artifacts (created in earlier partial pass, verified in this pass)
+  - .ai-context/index.md
+  - .ai-context/quickstart.md
+  - .ai-context/manifest.yaml
+  - .ai-context/architecture/index.md
+  - .ai-context/architecture/system-overview.md
+  - .ai-context/architecture/backend.md
+  - .ai-context/architecture/infrastructure.md
+  - .ai-context/architecture/data.md
+  - .ai-context/components/index.md
+  - .ai-context/components/kill-switch-core.md
+  - .ai-context/components/budget-alert.md
+  - .ai-context/components/quota-poller.md
+  - .ai-context/components/account-registry.md
+  - .ai-context/components/intent-actual.md
+  - .ai-context/components/providers.md
+  - .ai-context/components/dashboard.md
+  - .ai-context/components/inventory.md
+  - .ai-context/components/admin-routes.md
+  - .ai-context/components/client-package.md
+  - .ai-context/components/path-resolver.md
+  - .ai-context/components/gitlab-mirror.md
+  - .ai-context/workflows/index.md
+  - .ai-context/workflows/budget-alert-kill.md
+  - .ai-context/workflows/quota-poll-kill.md
+  - .ai-context/workflows/intent-actual-reporting.md
+  # New artifacts created in this pass
+  - .ai-context/change-impact/relationships.yaml
+  - .ai-context/testing/test-map.yaml
+  - .ai-context/debt/register.yaml
+  - .ai-context/unknowns/register.yaml
+  - .ai-context/decisions/conflicts.yaml
+  - .ai-context/deltas/latest.yaml
+
+changed: []
+
+invalidated: []
+
+conflicts:
+  - CONFLICT-001  # Client package version mismatch (pyproject.toml=0.3.0 vs __init__.py=0.12.0)
+  - CONFLICT-002  # Repo identity: CLAUDE.md says CloudManagement, repo is MultiCloud-MultiPass
+  - CONFLICT-003  # TEST_PLAN.md title says MultiCloud-MultiPass-gitlab
+  - CONFLICT-004  # manifest.yaml references 7 artifact files that do not exist on disk
+
+reverified:
+  - .ai-context/index.md
+  - .ai-context/quickstart.md
+  - .ai-context/manifest.yaml
+  - .ai-context/architecture/system-overview.md
+  - .ai-context/architecture/backend.md
+  - .ai-context/architecture/infrastructure.md
+  - .ai-context/architecture/data.md
+  - .ai-context/components/index.md
+  - .ai-context/components/kill-switch-core.md
+  - .ai-context/components/budget-alert.md
+  - .ai-context/components/quota-poller.md
+  - .ai-context/components/account-registry.md
+  - .ai-context/components/intent-actual.md
+  - .ai-context/components/providers.md
+  - .ai-context/components/dashboard.md
+  - .ai-context/components/inventory.md
+  - .ai-context/components/admin-routes.md
+  - .ai-context/components/client-package.md
+  - .ai-context/components/path-resolver.md
+  - .ai-context/components/gitlab-mirror.md
+  - .ai-context/workflows/budget-alert-kill.md
+  - .ai-context/workflows/quota-poll-kill.md
+  - .ai-context/workflows/intent-actual-reporting.md
+
+unknowns_added:
+  - UNKNOWN-001  # Production deployment topology
+  - UNKNOWN-002  # Firestore composite indexes
+  - UNKNOWN-003  # Report token rotation procedure
+  - UNKNOWN-004  # BigQuery billing export enabled
+  - UNKNOWN-005  # CI/CD pipeline existence outside repo
+  - UNKNOWN-006  # Missing reconciliation.md workflow file
+  - UNKNOWN-007  # Missing conventions/ and decisions/ artifact files
+  - UNKNOWN-008  # Async report_actual under Cloud Run scale-to-zero
+
+unknowns_resolved: []
+
+notes:
+  - "Initial compilation — prior_analyzed_revision was null in manifest.yaml"
+  - "25 pre-existing artifacts verified against revision e65660a; content unchanged"
+  - "6 new artifacts created: relationships.yaml, test-map.yaml, register.yaml (debt), register.yaml (unknowns), conflicts.yaml, latest.yaml"
+  - "4 conflicts identified — all resolution: UNKNOWN"
+  - "8 unknowns identified — all require external verification (GCP Console, project owner, or runtime testing)"
+  - "10 debt items identified — DEBT-001 (pytest-flask) and DEBT-002 (version mismatch) are highest priority"

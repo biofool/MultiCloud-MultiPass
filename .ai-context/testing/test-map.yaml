@@ -1,0 +1,148 @@
+# Test & Validation Routing — MultiCloud-MultiPass
+# Single source of truth for test commands. All commands OBSERVED in repo evidence.
+# Revision: e65660aca996d3aaa5cf22dd2686afa398700f55 (main)
+
+# Setup (required before any test command):
+#   python3 -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]"
+# Evidence: pyproject.toml [project.optional-dependencies] dev = ["pytest>=8.0"]
+#           CLAUDE.md, AGENTS.md, TEST_PLAN.md
+
+targets:
+
+  kill-switch-core:
+    # main.py, killswitch_actions.py, alerts.py, dedup.py
+    unit:
+      - ".venv/bin/python -m pytest tests/test_killswitch.py -v"
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "36 tests (TestDedup, TestParsePubsubMessage, TestShouldTakeAction, TestBillingShutoffGuard, TestApiKeyRevokeGuard, TestGkeScaleDownGuard, TestExecuteKillswitch, TestProcessAlert, TestFlaskEndpoints, TestIsProjectProtected)"
+      - "All google.cloud.* clients mocked in sys.modules before importing main"
+      - "No live GCP credentials required"
+
+  intent-actual-protocol:
+    # intent.py, intent_routes.py, intent_models.py, intent_storage.py, intent_detection.py, intent_kill.py, intent_auth.py
+    unit:
+      - ".venv/bin/python -m pytest tests/test_intent.py -v"
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "35 tests — currently 45 ERRORS due to pytest-flask version incompatibility (AttributeError: 'FlaskClient' object has no attribute 'response_class')"
+      - "Pre-existing issue, not caused by analysis — pytest-flask not in requirements.txt or pyproject.toml dev deps"
+      - "Tests use YAML file backend (tmp_path) with importlib.reload(intent) for env reset"
+      - "No live GCP/Firestore required"
+
+  admin-routes:
+    # admin_routes.py
+    unit:
+      - ".venv/bin/python -m pytest tests/test_admin_routes.py -v"
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "13 tests covering service-info, quota-poll pass-through, intent-overrun/budget-overrun/self-project-protection branches of /poll-intents, and allowlist-skip/no-billing-data/variance-recalibration branches of /reconcile"
+      - "All collaborators (poller, intent, registry, providers.registry) mocked"
+
+  quota-poller:
+    # poller.py
+    unit:
+      - ".venv/bin/python -m pytest tests/test_poller.py -v"
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "8 tests, all mock _sum_metric and registry.list_accounts"
+
+  account-registry:
+    # registry.py
+    unit:
+      - ".venv/bin/python -m pytest tests/test_registry.py -v"
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "6 tests, YAML backend only"
+
+  provider-adapters:
+    # providers/
+    unit:
+      - ".venv/bin/python -m pytest tests/test_providers.py -v"
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "18 tests, all mock GCP clients"
+
+  dashboard:
+    # dashboard.py, templates/
+    unit:
+      - ".venv/bin/python -m pytest tests/test_dashboard.py -v"
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "14 tests, mocks _query_bq"
+      - "Renders real template via main.app.test_client().get('/dashboard')"
+
+  inventory:
+    # inventory.py
+    unit:
+      - ".venv/bin/python -m pytest tests/test_inventory.py -v"
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "9 tests with temp accounts + temp tfstate"
+
+  client-package:
+    # cloud_management_client/
+    unit:
+      - ".venv/bin/python -m pytest tests/test_cloud_management_client_offline.py -v"
+    integration:
+      - ".venv/bin/python -m pytest tests/test_cloud_management_client.py -v"
+    typecheck: []
+    lint: []
+    notes:
+      - "Offline: 9 tests (spool, client_seq, construction, corrupt-spool tolerance) — no live server needed"
+      - "Integration: 8 tests, ALL SKIPPED without CLOUDMANAGEMENT_REPORT_TOKEN_AIRICHARDMOON env var + running CloudManagement instance"
+      - "Integration tests cover _lifecycle.py, _transport.py, _intent_ops.py, _actual_ops.py, errors.py, context.py"
+
+  terraform:
+    # terraform/
+    unit: []
+    integration: []
+    typecheck:
+      - "cd terraform && terraform validate"
+    lint: []
+    notes:
+      - "terraform plan requires GCP credentials — not run in analysis"
+      - "No automated regression test exists for Terraform layer (TEST_PLAN.md gap)"
+      - "terraform validate requires only Terraform binary (no cloud credentials)"
+
+  gitlab-mirror:
+    # mirror-to-gitlab.sh, push-to-gitlab.sh, gitlab-migrate.sh
+    unit: []
+    integration: []
+    typecheck: []
+    lint: []
+    notes:
+      - "No automated tests — manual execution with DRY_RUN=1"
+      - "Requires GITLAB_API env var (sourced from ~/projects/.env.secrets.gitlab)"
+
+# Full suite — run all unit tests at once
+full-suite:
+  unit:
+    - ".venv/bin/python -m pytest tests/ -v"
+  notes:
+    - "Baseline per TEST_PLAN.md: 125 passed, 8 skipped (on dev branch with admin_routes tests)"
+    - "Current main branch: test_intent.py has 45 ERRORS due to pytest-flask version incompatibility"
+    - "8 integration tests in test_cloud_management_client.py always skipped (no live server)"
+    - "No live GCP credentials, Firestore, or BigQuery required for unit tests"
+
+# Commands NOT available (no evidence in repo):
+#   - No linter configured (no flake8, ruff, mypy, pylint config found)
+#   - No type checker configured (no mypy.ini, pyright config)
+#   - No Makefile
+#   - No CI/CD pipeline config found in repo
