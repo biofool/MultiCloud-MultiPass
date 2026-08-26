@@ -41,6 +41,8 @@ import os
 
 from paths import resolve as _resolve_path
 
+import secret_loader
+
 log = logging.getLogger("killswitch.intent")
 
 # ---------------------------------------------------------------------------
@@ -49,7 +51,7 @@ log = logging.getLogger("killswitch.intent")
 
 USE_FIRESTORE = os.environ.get("USE_FIRESTORE", "false").lower() == "true"
 FIRESTORE_PROJECT = os.environ.get("FIRESTORE_PROJECT", os.environ.get("PROJECT_ID", ""))
-GLOBAL_REPORT_TOKEN = os.environ.get("CLOUDMANAGEMENT_REPORT_TOKEN", "")
+GLOBAL_REPORT_TOKEN = secret_loader.get("CLOUDMANAGEMENT_REPORT_TOKEN")
 INTENT_VARIANCE_THRESHOLD = float(os.environ.get("INTENT_VARIANCE_THRESHOLD", "1.2"))
 RATE_CAP_BUFFER = float(os.environ.get("RATE_CAP_BUFFER", "1.1"))
 

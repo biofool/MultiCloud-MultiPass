@@ -1,0 +1,205 @@
+# Technical Debt Register — MultiCloud-MultiPass
+# Sorted by priority_score (impact × likelihood × reach), highest first.
+# Classification: confirmed-defect / architectural-risk / code-smell / improvement-opportunity / evidence-gap
+# Revision: e65660aca996d3aaa5cf22dd2686afa398700f55 (main)
+
+- id: DEBT-001
+  summary: "pytest-flask version incompatibility causes 45 errors in test_intent.py"
+  classification: confirmed-defect
+  priority_score: 27  # impact=3 × likelihood=3 × reach=3
+  impact: high
+  likelihood: high
+  reach: high
+  details: |
+    tests/test_intent.py (35 tests, 647 lines) produces 45 ERRORS due to
+    AttributeError: 'FlaskClient' object has no attribute 'response_class'.
+    This is a pytest-flask version incompatibility — pytest-flask is not
+    listed in requirements.txt or pyproject.toml dev dependencies, yet the
+    test file appears to depend on it (or a specific Flask version's test
+    client behavior). The intent/actual protocol is the highest-risk
+    component after the kill switch, and its entire test suite is
+    non-functional.
+  evidence:
+    - {path: tests/test_intent.py, evidence_type: test, classification: OBSERVED}
+    - {path: pyproject.toml, symbol: "[project.optional-dependencies]", evidence_type: config, classification: OBSERVED}
+    - {path: .ai-context/manifest.yaml, symbol: limitations, evidence_type: analysis, classification: OBSERVED}
+  verification: "Run .venv/bin/python -m pytest tests/test_intent.py -v and observe AttributeError errors"
+  recommendation: "Pin pytest-flask version or update test client usage to match installed Flask version"
+
+- id: DEBT-002
+  summary: "Client package version mismatch: pyproject.toml=0.3.0, __init__.py=0.12.0"
+  classification: confirmed-defect
+  priority_score: 24  # impact=3 × likelihood=3 × reach=2 (downstream consumers)
+  impact: high
+  likelihood: high
+  reach: medium
+  details: |
+    pyproject.toml declares version = "0.3.0" but
+    cloud_management_client/__init__.py declares __version__ = "0.12.0".
+    All context artifacts, test comments, and code comments reference
+    v0.12.0. The pyproject.toml version appears stale or was reset during
+    the fork. Downstream sub-projects pip-installing this package may get
+    the wrong version number, affecting compatibility checks (tests
+    already compare parsed version tuples — see
+    test_cloud_management_client.py:210).
+  evidence:
+    - {path: pyproject.toml, symbol: version, lines: "7", evidence_type: config, classification: OBSERVED}
+    - {path: cloud_management_client/__init__.py, symbol: __version__, lines: "137", evidence_type: source, classification: OBSERVED}
+    - {path: tests/test_cloud_management_client.py, symbol: "version comparison", lines: "210-211", evidence_type: test, classification: OBSERVED}
+  verification: "grep version pyproject.toml and grep __version__ cloud_management_client/__init__.py"
+  recommendation: "Sync pyproject.toml version to 0.12.0 (or bump both to a new agreed version)"
+
+- id: DEBT-003
+  summary: "8 integration tests permanently skipped — no CI path exercises client↔hub integration"
+  classification: evidence-gap
+  priority_score: 18  # impact=3 × likelihood=2 × reach=3
+  impact: high
+  likelihood: medium
+  reach: high
+  details: |
+    tests/test_cloud_management_client.py (8 tests) are always skipped
+    because they require a running CloudManagement instance and
+    CLOUDMANAGEMENT_REPORT_TOKEN_AIRICHARDMOON env var. These are the only
+    tests covering _lifecycle.py (context manager enter/exit/flush),
+    _transport.py (HTTP delivery/retry), _intent_ops.py, _actual_ops.py,
+    errors.py, and context.py. No CI pipeline exists to run these against
+    a staging instance.
+  evidence:
+    - {path: tests/test_cloud_management_client.py, symbol: pytestmark, lines: "28-29", evidence_type: test, classification: OBSERVED}
+    - {path: TEST_PLAN.md, symbol: "Known gaps", evidence_type: doc, classification: OBSERVED}
+  verification: "Run pytest tests/test_cloud_management_client.py -v and observe 8 skipped"
+  recommendation: "Set up a staging CloudManagement instance + token for CI integration tests"
+
+- id: DEBT-004
+  summary: "No automated test coverage for Terraform infrastructure layer"
+  classification: evidence-gap
+  priority_score: 12  # impact=3 × likelihood=2 × reach=2
+  impact: high
+  likelihood: medium
+  reach: medium
+  details: |
+    terraform/ contains 10 files provisioning Cloud Run, Pub/Sub,
+    Scheduler, BigQuery, Firestore, budgets, and IAM. No terraform
+    validate or terraform plan is run in any automated fashion. The
+    refactor from monolithic main.tf to split files was verified by
+    byte-for-byte diff (manual, one-time), not captured as a regression
+    test. Resource/attribute drops or renames could go undetected.
+  evidence:
+    - {path: TEST_PLAN.md, symbol: "terraform/*.tf", evidence_type: doc, classification: OBSERVED}
+    - {path: terraform/, evidence_type: iac, classification: OBSERVED}
+  verification: "Search for CI config, Makefile, or test runner invoking terraform validate/plan"
+  recommendation: "Add terraform validate to CI; add terraform plan against scratch project if budget allows"
+
+- id: DEBT-005
+  summary: "Reconciliation variance threshold (15%) hardcoded in admin_routes.py"
+  classification: code-smell
+  priority_score: 8  # impact=2 × likelihood=2 × reach=2
+  impact: medium
+  likelihood: medium
+  reach: medium
+  details: |
+    admin_routes.py:162 uses a hardcoded variance > 0.15 threshold to
+    trigger ExpectedCost recalibration during reconciliation. This is not
+    env-configurable, unlike most other thresholds in the system
+    (INTENT_VARIANCE_THRESHOLD, BASELINE_MULTIPLIER, etc.). Changing the
+    recalibration sensitivity requires a code change.
+  evidence:
+    - {path: admin_routes.py, symbol: handle_reconcile, lines: "162", evidence_type: source, classification: OBSERVED}
+  verification: "grep 0.15 admin_routes.py"
+  recommendation: "Extract to env var RECONCILIATION_VARIANCE_THRESHOLD with default 0.15"
+
+- id: DEBT-006
+  summary: "OpenStack and Cloudflare fetch_billed_costs not implemented (TODO stubs)"
+  classification: improvement-opportunity
+  priority_score: 6  # impact=2 × likelihood=2 × reach=1
+  impact: medium
+  likelihood: medium
+  reach: low
+  details: |
+    providers/openstack.py:86 has a TODO to implement Ceilometer/Gnocchi
+    billing query. providers/cloudflare.py:69 has a TODO to implement
+    GraphQL Analytics API query. Both providers can kill but cannot
+    fetch billed costs for reconciliation. Reconciliation for these
+    clouds will show no billed data (graceful degradation).
+  evidence:
+    - {path: providers/openstack.py, lines: "86", evidence_type: source, classification: OBSERVED}
+    - {path: providers/cloudflare.py, lines: "69", evidence_type: source, classification: OBSERVED}
+    - {path: docs/per-repo-api-specs.md, symbol: "calibration_delta", evidence_type: doc, classification: OBSERVED}
+  verification: "grep TODO providers/openstack.py providers/cloudflare.py"
+  recommendation: "Implement when OpenStack/Cloudflare billing data sources are confirmed"
+
+- id: DEBT-007
+  summary: "No byte-level regression test for dashboard HTML rendered output"
+  classification: evidence-gap
+  priority_score: 6  # impact=2 × likelihood=2 × reach=1
+  impact: medium
+  likelihood: medium
+  reach: low
+  details: |
+    tests/test_dashboard.py renders the real template and asserts on
+    content strings, but does not byte-diff old vs new output. A template
+    partial could silently change output composition while still
+    returning 200 with the strings the current assertions check for.
+  evidence:
+    - {path: TEST_PLAN.md, symbol: "Dashboard HTML", evidence_type: doc, classification: OBSERVED}
+    - {path: tests/test_dashboard.py, evidence_type: test, classification: OBSERVED}
+  verification: "Review test assertions in test_dashboard.py — check for snapshot/byte-diff tests"
+  recommendation: "Add snapshot test for rendered dashboard HTML output"
+
+- id: DEBT-008
+  summary: "In-memory dedup cache is per-container, not persistent — redelivery after cold start possible"
+  classification: architectural-risk
+  priority_score: 6  # impact=2 × likelihood=2 × reach=1
+  impact: medium
+  likelihood: medium
+  reach: low
+  details: |
+    dedup.py uses _processed_messages dict (in-memory, 10-min TTL).
+    Cloud Run scale-to-zero means the container can cold-start between
+    alert deliveries, losing the dedup cache. Pub/Sub redelivery after
+    cold start could cause duplicate kill switch executions. The kill
+    actions themselves are mostly idempotent (scale to 0, disable
+    billing), but duplicate execution adds noise and API calls.
+  evidence:
+    - {path: dedup.py, symbol: _processed_messages, evidence_type: source, classification: OBSERVED}
+    - {path: .ai-context/components/budget-alert.md, symbol: "Dedup is per-container", evidence_type: analysis, classification: OBSERVED}
+  verification: "Review dedup.py — no persistence mechanism (Firestore/Redis)"
+  recommendation: "Consider Firestore-backed dedup if duplicate kills become noisy in production"
+
+- id: DEBT-009
+  summary: "No linter or type checker configured"
+  classification: improvement-opportunity
+  priority_score: 4  # impact=1 × likelihood=2 × reach=2
+  impact: low
+  likelihood: medium
+  reach: medium
+  details: |
+    No flake8, ruff, mypy, pyright, or pylint configuration found in the
+    repo. No Makefile. No CI pipeline. Code quality relies on manual
+    review and test passes.
+  evidence:
+    - {path: pyproject.toml, evidence_type: config, classification: OBSERVED}
+    - "No .flake8, .ruff.toml, mypy.ini, pyrightconfig.json, Makefile, or .github/workflows/ found"
+  verification: "find . -name '*.cfg' -o -name '.flake8' -o -name 'mypy.ini' -o -name '.ruff.toml' -o -name 'Makefile'"
+  recommendation: "Add ruff (lint+format) and mypy (typecheck) to dev dependencies and CI"
+
+- id: DEBT-010
+  summary: "CLAUDE.md and TEST_PLAN.md title references say 'CloudManagement' / 'MultiCloud-MultiPass-gitlab' — fork artifact"
+  classification: code-smell
+  priority_score: 3  # impact=1 × likelihood=3 × reach=1
+  impact: low
+  likelihood: high
+  reach: low
+  details: |
+    CLAUDE.md line 7 says "CloudManagement — multi-cloud cost kill switch"
+    but the repo is MultiCloud-MultiPass (the public open-source fork).
+    TEST_PLAN.md line 1 says "Test Plan — MultiCloud-MultiPass-gitlab".
+    These are artifacts of the fork from CloudManagement and the GitLab
+    mirror naming convention. Not functionally harmful but causes
+    confusion about which repo you're in.
+  evidence:
+    - {path: CLAUDE.md, lines: "7", evidence_type: doc, classification: OBSERVED}
+    - {path: TEST_PLAN.md, lines: "1", evidence_type: doc, classification: OBSERVED}
+    - {path: AGENTS.md, symbol: "Project-specific: CloudManagement", evidence_type: doc, classification: OBSERVED}
+  verification: "head -7 CLAUDE.md and head -1 TEST_PLAN.md"
+  recommendation: "Update CLAUDE.md and TEST_PLAN.md titles to reference MultiCloud-MultiPass"

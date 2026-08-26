@@ -1,0 +1,638 @@
+# Change-impact relationships for MultiCloud-MultiPass
+# Evidence classification: OBSERVED = directly in code/config; INFERRED = strongly suggested
+# Revision: e65660aca996d3aaa5cf22dd2686afa398700f55 (main)
+
+components:
+  - name: kill-switch-core
+    path: [main.py, killswitch_actions.py]
+    depends_on:
+      - target: alerts.py
+        type: code
+        evidence: "OBSERVED — main.py imports parse_pubsub_message, should_take_action"
+      - target: dedup.py
+        type: code
+        evidence: "OBSERVED — main.py imports _is_duplicate"
+      - target: killswitch_actions.py
+        type: code
+        evidence: "OBSERVED — main.py calls all 7 action functions"
+      - target: registry.py
+        type: code
+        evidence: "OBSERVED — main.py imports is_allowlisted"
+      - target: "google.cloud.{run_v2,scheduler_v1,compute_v1,billing_v1}"
+        type: runtime
+        evidence: "OBSERVED — killswitch_actions.py lazy imports"
+      - target: flask
+        type: code
+        evidence: "OBSERVED — main.py creates Flask app"
+    used_by:
+      - target: poller.py
+        type: code
+        evidence: "OBSERVED — execute_killswitch injected into poll_all_accounts"
+      - target: admin_routes.py
+        type: code
+        evidence: "OBSERVED — imports main for config flags + execute_killswitch"
+      - target: alerts.py
+        type: code
+        evidence: "OBSERVED — imports main for main.log"
+      - target: killswitch_actions.py
+        type: code
+        evidence: "OBSERVED — import main for DRY_RUN/ENABLE_* flags"
+    interfaces:
+      - "POST / (budget alert handler)"
+      - "GET /health"
+      - "execute_killswitch(project_id, reason) -> list[dict]"
+      - "is_project_protected(project_id) -> bool"
+    data_stores: []
+    configuration:
+      - "DRY_RUN (env, default true)"
+      - "SELF_PROJECT_ID (env — self-protection invariant)"
+      - "ALLOWLIST (env)"
+      - "ENABLE_RUN_PAUSE, ENABLE_TRIGGER_DISABLE, STOP_COMPUTE_INSTANCES, ENABLE_GKE_SCALE_DOWN, ENABLE_API_KEY_REVOKE, ENABLE_BILLING_SHUTOFF (env toggles)"
+    runtime_workflows:
+      - budget-alert-kill
+      - quota-poll-kill
+      - intent-actual-reporting
+    decisions:
+      - "DRY_RUN defaults to true (safety guard)"
+      - "Self-protection: SELF_PROJECT_ID hard-block prevents feedback loop"
+      - "killswitch_actions reads main.DRY_RUN via qualified import (not from main import)"
+    known_risks:
+      - "Kill actions are production-impacting — can disable billing, stop compute"
+      - "In-memory dedup (dedup.py) is per-container, not persistent — redelivery after cold start possible"
+    security_sensitive: true
+    operationally_sensitive: true
+    before_modifying:
+      - "Never remove SELF_PROJECT_ID hard-block in execute_killswitch()"
+      - "Any new kill action must check main.DRY_RUN and main.ENABLE_* flag"
+      - "Any new kill action must be added to execute_killswitch() sequence"
+      - "Test with DRY_RUN=true; mock google.cloud.* in sys.modules"
+    test_map_target: tests/test_killswitch.py
+    evidence:
+      - path: main.py
+        symbol: execute_killswitch
+        evidence_type: source
+        confidence: high
+      - path: killswitch_actions.py
+        symbol: disable_cloud_run_services
+        evidence_type: source
+        confidence: high
+
+  - name: intent-actual-protocol
+    path: [intent.py, intent_routes.py, intent_models.py, intent_storage.py, intent_detection.py, intent_kill.py, intent_auth.py]
+    depends_on:
+      - target: registry.py
+        type: code
+        evidence: "OBSERVED — account lookup for budget/token validation"
+      - target: providers/registry.py
+        type: code
+        evidence: "OBSERVED — intent_kill.py routes to providers.registry.kill_job()"
+      - target: paths.py
+        type: code
+        evidence: "OBSERVED — intent_storage.py resolves YAML paths via paths.resolve()"
+      - target: google.cloud.firestore
+        type: runtime
+        evidence: "OBSERVED — lazy import when USE_FIRESTORE=true"
+      - target: flask
+        type: code
+        evidence: "OBSERVED — intent_routes.py creates blueprint"
+      - target: secrets.compare_digest
+        type: code
+        evidence: "OBSERVED — intent_auth.py constant-time token comparison"
+    used_by:
+      - target: main.py
+        type: code
+        evidence: "OBSERVED — registers intent.bp"
+      - target: admin_routes.py
+        type: code
+        evidence: "OBSERVED — handle_poll_intents() calls list_intents, check_intent_overrun, kill_intent"
+      - target: cloud_management_client/
+        type: code
+        evidence: "OBSERVED — client calls HTTP endpoints"
+    interfaces:
+      - "POST /api/v1/intent (declare)"
+      - "POST /api/v1/actual (report)"
+      - "GET /api/v1/expected-costs/<project_id>"
+      - "GET /api/v1/intents, GET /api/v1/intents/<project_id>"
+      - "POST /api/v1/kill/<intent_id> (manual kill)"
+      - "GET/POST /api/v1/budget/<project_id>"
+      - "GET /api/v1/intent/<intent_id>"
+      - "GET /api/v1/kill-orders"
+      - "POST /api/v1/exposure"
+    data_stores:
+      - "Firestore: api_intents, api_actuals, expected_costs, kill_events (prod)"
+      - "YAML: config/api_intents.yaml, config/api_actuals.yaml, config/expected_costs.yaml, config/kill_events.yaml (dev)"
+    configuration:
+      - "USE_FIRESTORE (env, true=prod, false=dev)"
+      - "INTENT_VARIANCE_THRESHOLD (env, default 1.2)"
+      - "CLOUDMANAGEMENT_REPORT_TOKEN (env, fallback auth token)"
+    runtime_workflows:
+      - intent-actual-reporting
+    decisions:
+      - "Module split from monolithic intent.py for reload-safe config access (import intent as _intent_mod)"
+      - "client_seq monotonic per-intent counter prevents stale replays (issue #1)"
+      - "list_all_intents intentionally unauthenticated (docstring justification)"
+      - "Cumulative semantics: clients send cumulative totals, not deltas"
+    known_risks:
+      - "45 test errors in test_intent.py due to pytest-flask version incompatibility (pre-existing)"
+      - "Per-project bearer tokens — missing auth = unauthorized cost control"
+    security_sensitive: true
+    operationally_sensitive: true
+    before_modifying:
+      - "New endpoints need _validate_token(project_id) unless documented exception"
+      - "Detection threshold changes (INTENT_VARIANCE_THRESHOLD) affect kill sensitivity"
+      - "client_seq enforcement prevents stale replays — don't break this"
+      - "Sibling modules read config via import intent as _intent_mod (reload-safe)"
+    test_map_target: tests/test_intent.py
+    evidence:
+      - path: intent_routes.py
+        symbol: declare_intent
+        evidence_type: source
+        confidence: high
+      - path: intent_auth.py
+        symbol: _validate_token
+        evidence_type: source
+        confidence: high
+      - path: intent_detection.py
+        symbol: check_intent_overrun
+        evidence_type: source
+        confidence: high
+
+  - name: provider-adapters
+    path: [providers/base.py, providers/registry.py, providers/gcp.py, providers/openstack.py, providers/cloudflare.py, providers/http_callback.py]
+    depends_on:
+      - target: "google.cloud.{run_v2,compute_v1,container_v1}"
+        type: runtime
+        evidence: "OBSERVED — GcpProvider lazy imports"
+      - target: "subprocess + openstack CLI"
+        type: runtime
+        evidence: "OBSERVED — OpenStackProvider uses subprocess"
+      - target: urllib.request
+        type: code
+        evidence: "OBSERVED — HttpCallbackProvider stdlib only"
+      - target: os.environ
+        type: config
+        evidence: "OBSERVED — DRY_RUN, BQ_DATASET, HUB_PROJECT_ID"
+    used_by:
+      - target: intent_kill.py
+        type: code
+        evidence: "OBSERVED — providers.registry.kill_job()"
+      - target: admin_routes.py
+        type: code
+        evidence: "OBSERVED — handle_reconcile() calls fetch_billed_costs()"
+    interfaces:
+      - "CostProvider ABC: kill_job(kill_descriptor, reason) -> KillResult"
+      - "CostProvider ABC: fetch_billed_costs(project_id, since, until) -> list[BilledCost] (optional)"
+      - "providers.registry.kill_job(kill_descriptor, reason) -> KillResult"
+      - "providers.registry.fetch_billed_costs(cloud, project_id, since, until) -> list"
+    data_stores:
+      - "BigQuery billing export (GcpProvider.fetch_billed_costs, read-only)"
+    configuration:
+      - "DRY_RUN (env, read independently by each provider)"
+      - "BQ_DATASET, BQ_BILLING_TABLE, HUB_PROJECT_ID (GcpProvider billing)"
+    runtime_workflows:
+      - budget-alert-kill
+      - intent-actual-reporting
+      - reconciliation
+    decisions:
+      - "Unknown kill type falls back to HttpCallbackProvider"
+      - "GCP provider reads DRY_RUN via os.environ (decoupled from main.DRY_RUN)"
+      - "Provider instances are lazy singletons in registry._instances"
+    known_risks:
+      - "OpenStack fetch_billed_costs not implemented (TODO in providers/openstack.py:86)"
+      - "Cloudflare fetch_billed_costs not implemented (TODO in providers/cloudflare.py:69)"
+      - "HttpCallbackProvider sends authenticated POST to arbitrary URLs from kill descriptor"
+    security_sensitive: true
+    operationally_sensitive: true
+    before_modifying:
+      - "New provider: implement CostProvider, register in providers/registry.py"
+      - "Kill descriptor schema changes affect both hub and client"
+      - "Add tests in tests/test_providers.py"
+    test_map_target: tests/test_providers.py
+    evidence:
+      - path: providers/base.py
+        symbol: CostProvider
+        evidence_type: source
+        confidence: high
+      - path: providers/registry.py
+        symbol: kill_job
+        evidence_type: source
+        confidence: high
+
+  - name: quota-poller
+    path: [poller.py]
+    depends_on:
+      - target: registry.py
+        type: code
+        evidence: "OBSERVED — list_accounts() for poll loop"
+      - target: google.cloud.monitoring_v3
+        type: runtime
+        evidence: "OBSERVED — MetricServiceClient lazy singleton"
+      - target: os.environ
+        type: config
+        evidence: "OBSERVED — BASELINE_MULTIPLIER, POLL_WINDOW_MINUTES, BASELINE_WINDOW_MINUTES, SELF_PROJECT_ID"
+    used_by:
+      - target: admin_routes.py
+        type: code
+        evidence: "OBSERVED — handle_poll() calls poll_all_accounts(main.execute_killswitch)"
+    interfaces:
+      - "poll_all_accounts(execute_killswitch) -> list[dict]"
+      - "check_account(account) -> dict | None"
+    data_stores: []
+    configuration:
+      - "BASELINE_MULTIPLIER (env, default 5)"
+      - "POLL_WINDOW_MINUTES (env, default 5)"
+      - "BASELINE_WINDOW_MINUTES (env, default 60)"
+      - "SELF_PROJECT_ID (env — self-protection)"
+    runtime_workflows:
+      - quota-poll-kill
+    decisions:
+      - "execute_killswitch is injected (not imported) for testability"
+      - "Errors in metric queries return 0.0 (graceful degradation with WARNING log)"
+    known_risks:
+      - "Incorrect detection rules could cause false kills"
+      - "Monitoring API errors silently degrade to 0.0 — could miss real spikes"
+    security_sensitive: false
+    operationally_sensitive: true
+    before_modifying:
+      - "Detection rule changes affect kill sensitivity"
+      - "Keep execute_killswitch injection pattern for testability"
+    test_map_target: tests/test_poller.py
+    evidence:
+      - path: poller.py
+        symbol: poll_all_accounts
+        evidence_type: source
+        confidence: high
+
+  - name: account-registry
+    path: [registry.py]
+    depends_on:
+      - target: paths.py
+        type: code
+        evidence: "OBSERVED — resolve() for ACCOUNTS_FILE path"
+      - target: google.cloud.firestore
+        type: runtime
+        evidence: "OBSERVED — lazy when USE_FIRESTORE=true"
+      - target: yaml
+        type: code
+        evidence: "OBSERVED — lazy when USE_FIRESTORE=false"
+    used_by:
+      - target: main.py
+        type: code
+        evidence: "OBSERVED — is_allowlisted() for is_project_protected()"
+      - target: intent_auth.py
+        type: code
+        evidence: "OBSERVED — get_account() for token lookup"
+      - target: intent_detection.py
+        type: code
+        evidence: "OBSERVED — get_account() for budget check"
+      - target: intent_kill.py
+        type: code
+        evidence: "OBSERVED — get_account() for jobs fallback"
+      - target: intent_routes.py
+        type: code
+        evidence: "OBSERVED — get_account() for budget remaining"
+      - target: poller.py
+        type: code
+        evidence: "OBSERVED — list_accounts() for poll loop"
+      - target: admin_routes.py
+        type: code
+        evidence: "OBSERVED — list_accounts() for reconcile"
+      - target: dashboard.py
+        type: code
+        evidence: "OBSERVED — list_accounts() for team view"
+      - target: inventory.py
+        type: code
+        evidence: "OBSERVED — list_accounts() for inventory build"
+    interfaces:
+      - "list_accounts() -> list[Account]"
+      - "get_account(project_id) -> Account | None"
+      - "is_allowlisted(project_id) -> bool"
+      - "Account dataclass with to_dict()/from_dict()"
+    data_stores:
+      - "Firestore accounts collection (prod)"
+      - "config/accounts.yaml (dev)"
+    configuration:
+      - "USE_FIRESTORE (env)"
+      - "ACCOUNTS_FILE (env, path to YAML)"
+      - "FIRESTORE_PROJECT (env)"
+    runtime_workflows:
+      - budget-alert-kill
+      - quota-poll-kill
+      - intent-actual-reporting
+      - reconciliation
+    decisions:
+      - "list_accounts() catches all errors and returns [] (graceful degradation)"
+      - "Firestore doc ID = project_id"
+    known_risks:
+      - "allowlist: true prevents kill switch from touching a project — misconfiguration risk"
+      - "report_token_secret references env vars / Secret Manager — missing token = auth failure"
+    security_sensitive: true
+    operationally_sensitive: false
+    before_modifying:
+      - "Adding a new Account field requires updating from_dict(), to_dict(), accounts.example.yaml, Terraform seed docs"
+    test_map_target: tests/test_registry.py
+    evidence:
+      - path: registry.py
+        symbol: Account
+        evidence_type: source
+        confidence: high
+      - path: registry.py
+        symbol: list_accounts
+        evidence_type: source
+        confidence: high
+
+  - name: dashboard
+    path: [dashboard.py, templates/]
+    depends_on:
+      - target: registry.py
+        type: code
+        evidence: "OBSERVED — list_accounts() for team view"
+      - target: google.cloud.bigquery
+        type: runtime
+        evidence: "OBSERVED — lazy billing queries"
+      - target: flask
+        type: code
+        evidence: "OBSERVED — blueprint, render_template, jsonify"
+      - target: sql/
+        type: code
+        evidence: "OBSERVED — 5 SQL template files"
+    used_by:
+      - target: main.py
+        type: code
+        evidence: "OBSERVED — registers dashboard.bp"
+    interfaces:
+      - "GET /dashboard (HTML)"
+      - "GET /api/{summary,daily,services,projects,spike,accounts} (JSON)"
+    data_stores:
+      - "BigQuery billing export (read-only, 5-min cached)"
+    configuration:
+      - "BQ_BILLING_TABLE, BQ_DATASET, BUDGET_AMOUNT_USD, HUB_PROJECT_ID (env)"
+    runtime_workflows: []
+    decisions:
+      - "5-minute in-memory cache (_cache dict, _CACHE_TTL=300) to avoid repeated BigQuery scans"
+      - "Degrades gracefully when BigQuery not configured (warning banner)"
+      - "No app-level auth — relies on Cloud Run IAM in prod"
+    known_risks:
+      - "No app-level auth on dashboard — relies entirely on Cloud Run IAM"
+      - "No byte-level regression test for rendered HTML output"
+    security_sensitive: false
+    operationally_sensitive: false
+    before_modifying:
+      - "New API endpoints should use _cached() decorator"
+      - "SQL changes should filter on invoice.month partition to minimize scan cost"
+      - "Template partials in templates/partials/"
+    test_map_target: tests/test_dashboard.py
+    evidence:
+      - path: dashboard.py
+        symbol: _cached
+        evidence_type: source
+        confidence: high
+
+  - name: admin-routes
+    path: [admin_routes.py]
+    depends_on:
+      - target: main
+        type: code
+        evidence: "OBSERVED — qualified access to DRY_RUN, SELF_PROJECT_ID, ALLOWLIST, config flags"
+      - target: registry.py
+        type: code
+        evidence: "OBSERVED — list_accounts(), USE_FIRESTORE, ACCOUNTS_FILE"
+      - target: poller.py
+        type: code
+        evidence: "OBSERVED — lazy import in handle_poll()"
+      - target: intent module
+        type: code
+        evidence: "OBSERVED — lazy import in handle_poll_intents()"
+      - target: providers.registry
+        type: code
+        evidence: "OBSERVED — lazy import in handle_reconcile()"
+    used_by:
+      - target: main.py
+        type: code
+        evidence: "OBSERVED — registers admin.bp"
+    interfaces:
+      - "POST /poll (Cloud Scheduler 5min)"
+      - "POST /poll-intents (Cloud Scheduler 2min)"
+      - "POST /reconcile (Cloud Scheduler daily 06:00 UTC)"
+      - "GET / (service info)"
+    data_stores: []
+    configuration:
+      - "All main.* config flags (qualified access)"
+    runtime_workflows:
+      - quota-poll-kill
+      - intent-actual-reporting
+      - reconciliation
+    decisions:
+      - "No app-level auth — relies on Cloud Run IAM (roles/run.invoker on killswitch-rt SA)"
+      - "Reconciliation variance threshold 15% is hardcoded (admin_routes.py:162)"
+    known_risks:
+      - "No app-level auth — IAM-only. Adding shared secret would duplicate IAM"
+      - "Reconciliation variance threshold (15%) hardcoded — not env-configurable"
+    security_sensitive: true
+    operationally_sensitive: true
+    before_modifying:
+      - "Auth changes: see docstring — verify OIDC token email claim instead of adding shared secret"
+      - "Reconciliation variance threshold is hardcoded at 0.15 — consider env var"
+    test_map_target: tests/test_admin_routes.py
+    evidence:
+      - path: admin_routes.py
+        symbol: handle_poll
+        evidence_type: source
+        confidence: high
+      - path: admin_routes.py
+        symbol: handle_reconcile
+        evidence_type: source
+        confidence: high
+
+  - name: client-package
+    path: [cloud_management_client/]
+    depends_on:
+      - target: "stdlib only (urllib, json, threading, queue, os, time, secrets)"
+        type: code
+        evidence: "OBSERVED — zero external deps"
+    used_by:
+      - target: "sub-projects (AIRichardMoon, WorldStudioFinder, etc.)"
+        type: external
+        evidence: "DECLARED — pip install cloud-management-client"
+      - target: tests/test_cloud_management_client.py
+        type: test
+        evidence: "OBSERVED — integration tests (skipped without token)"
+      - target: tests/test_cloud_management_client_offline.py
+        type: test
+        evidence: "OBSERVED — offline spool/client_seq tests"
+    interfaces:
+      - "CloudManagementClient(project_id, report_token, base_url, ...)"
+      - "declare_intent(job_id, ...) -> IntentResponse (synchronous)"
+      - "report_actual(intent_id, ...) -> ActualResponse (async by default)"
+      - "intent(job_id, ...) -> IntentContext (context manager)"
+      - "check_budget(expected_cost_usd) -> BudgetCheck"
+      - "check_kill_orders() -> list[KillOrder]"
+      - "report_exposure(display_name, ...) -> dict"
+      - "flush() — wait for pending async reports"
+    data_stores:
+      - "On-disk spool: ~/.cache/cloud_management_client/spool/ (JSON files)"
+    configuration:
+      - "CLOUDMANAGEMENT_STRICT (env, default false — errors logged not raised)"
+      - "CLOUDMANAGEMENT_REPORT_TOKEN_<PROJECT> (env, per-project auth)"
+    runtime_workflows:
+      - intent-actual-reporting
+    decisions:
+      - "Best-effort: errors logged at WARNING, never raised unless STRICT=true"
+      - "report_actual is async (background thread) by default"
+      - "Durable spool: entries written before HTTP attempt, deleted on success"
+      - "client_seq: monotonic per-intent counter prevents stale replays (issue #1)"
+      - "Identity mode: GCP OIDC ID token from metadata server (issue #10)"
+    known_risks:
+      - "8 integration tests skipped (require live CloudManagement instance + report token)"
+      - "Spool format changes break in-flight entries from old clients"
+      - "Version mismatch: pyproject.toml=0.3.0, __init__.py=0.12.0 (see conflicts.yaml)"
+    security_sensitive: true
+    operationally_sensitive: false
+    before_modifying:
+      - "Must remain stdlib-only — no new dependencies"
+      - "report_actual async behavior: don't block the caller"
+      - "Version bump __version__ on any API change"
+    test_map_target: tests/test_cloud_management_client_offline.py
+    evidence:
+      - path: cloud_management_client/__init__.py
+        symbol: __version__
+        evidence_type: source
+        confidence: high
+      - path: cloud_management_client/spool.py
+        symbol: Spool
+        evidence_type: source
+        confidence: high
+
+  - name: inventory
+    path: [inventory.py]
+    depends_on:
+      - target: registry.py
+        type: code
+        evidence: "OBSERVED — list_accounts()"
+      - target: paths.py
+        type: code
+        evidence: "OBSERVED — resolve() for terraform state path"
+      - target: json
+        type: code
+        evidence: "OBSERVED — parses terraform.tfstate"
+    used_by:
+      - target: main.py
+        type: code
+        evidence: "OBSERVED — registers inventory.bp"
+    interfaces:
+      - "build_inventory() -> dict {accounts, resources, summary}"
+      - "GET /api/v1/inventory (Flask endpoint)"
+    data_stores:
+      - "terraform/terraform.tfstate (read-only, gitignored)"
+    configuration:
+      - "TERRAFORM_DIR (env, default: terraform)"
+    runtime_workflows: []
+    decisions:
+      - "Degrades gracefully: missing/malformed tfstate → empty resources + WARNING log"
+    known_risks:
+      - "Exposes account structure (project IDs, owners) — LOW sensitivity"
+    security_sensitive: false
+    operationally_sensitive: false
+    before_modifying:
+      - "New Terraform resource types: add to type_map in _load_terraform_resources()"
+    test_map_target: tests/test_inventory.py
+    evidence:
+      - path: inventory.py
+        symbol: build_inventory
+        evidence_type: source
+        confidence: high
+
+  - name: terraform
+    path: [terraform/]
+    depends_on:
+      - target: "GCP provider ~> 5.0"
+        type: external
+        evidence: "OBSERVED — provider.tf"
+      - target: "Terraform >= 1.5"
+        type: external
+        evidence: "INFERRED — split file structure implies >= 1.5"
+    used_by:
+      - target: inventory.py
+        type: code
+        evidence: "OBSERVED — reads terraform.tfstate"
+      - target: scripts/deploy.sh
+        type: external
+        evidence: "OBSERVED — manual deploy script"
+    interfaces:
+      - "terraform init / plan / apply"
+    data_stores:
+      - "terraform/terraform.tfstate (local, gitignored)"
+    configuration:
+      - "terraform/terraform.tfvars (gitignored)"
+      - "terraform/terraform.tfvars.example (committed)"
+    runtime_workflows: []
+    decisions:
+      - "Split from monolithic main.tf into 10 focused files (pure structural refactor)"
+      - "Cloud Run scale 0-1, concurrency 1 (prevents self-scaling feedback loop)"
+      - "Hub self-budget is email-only (NOT to Pub/Sub) — prevents feedback loop"
+    known_risks:
+      - "No automated regression test for Terraform layer"
+      - "terraform plan requires GCP credentials — not verified in analysis"
+    security_sensitive: true
+    operationally_sensitive: true
+    before_modifying:
+      - "Resource changes: verify with terraform plan against scratch project"
+      - "New env vars: add to cloud_run.tf env vars block"
+      - "New scheduler jobs: add to scheduler.tf"
+    test_map_target: null
+    evidence:
+      - path: terraform/cloud_run.tf
+        evidence_type: iac
+        confidence: high
+      - path: terraform/iam.tf
+        evidence_type: iac
+        confidence: high
+
+  - name: gitlab-mirror
+    path: [mirror-to-gitlab.sh, push-to-gitlab.sh, gitlab-migrate.sh]
+    depends_on:
+      - target: "GITLAB_API env var"
+        type: config
+        evidence: "OBSERVED — sourced from ~/projects/.env.secrets.gitlab"
+      - target: curl
+        type: external
+        evidence: "OBSERVED — GitLab API calls"
+      - target: gh CLI
+        type: external
+        evidence: "OBSERVED — GitHub issue creation"
+      - target: git
+        type: external
+        evidence: "OBSERVED — push operations"
+    used_by: []
+    interfaces:
+      - "mirror-to-gitlab.sh (full mirror + audit trail)"
+      - "push-to-gitlab.sh (committed history only, safer)"
+      - "gitlab-migrate.sh (one-shot GitHub→GitLab migration)"
+    data_stores: []
+    configuration:
+      - "GITLAB_API env var (GitLab PAT)"
+      - "REPOS list (hardcoded in each script)"
+    runtime_workflows: []
+    decisions:
+      - "Token never printed — redact() function strips GITLAB_API from output"
+      - "push-to-gitlab.sh uses GIT_ASKPASS (temp script) instead of URL-embedded token"
+      - "Tokenless gitlab remote set after push (clean URL)"
+      - "DRY_RUN=1 supported by all scripts"
+    known_risks:
+      - "No automated tests — manual execution with DRY_RUN=1"
+      - "REPOS list hardcoded — must edit script to add/remove repos"
+      - "PROJECTS_ROOT path mismatch noted in parent CLAUDE.md (scripts assume ~/projects/<name>, repos at ~/projects/github/<name>)"
+    security_sensitive: true
+    operationally_sensitive: false
+    before_modifying:
+      - "Never print GITLAB_API — always pipe through redact()"
+      - "DRY_RUN=1 must work for all scripts"
+      - "Push failures must be surfaced (never fail silently)"
+    test_map_target: null
+    evidence:
+      - path: push-to-gitlab.sh
+        evidence_type: script
+        confidence: high
+      - path: mirror-to-gitlab.sh
+        evidence_type: script
+        confidence: high

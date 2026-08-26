@@ -11,6 +11,25 @@
 #                   projects/issues (API reads still occur).
 set -euo pipefail
 
+# --- Debug/Verbose flags ---
+DEBUG=false
+VERBOSE=false
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -d|--debug) DEBUG=true; shift ;;
+        -v|--verbose) VERBOSE=true; shift ;;
+        *) break ;;
+    esac
+done
+
+if $DEBUG; then
+    set -x
+    PS4='+ ${BASH_SOURCE}:${LINENO}: '
+fi
+
+log_verbose() { $VERBOSE && echo "[VERBOSE] $*" >&2 || true; }
+log_debug() { $DEBUG && echo "[DEBUG] $*" >&2 || true; }
+
 PROJECTS_ROOT="$HOME/projects"
 ENV_FILE="$PROJECTS_ROOT/.env.secrets.gitlab"
 DRY_RUN="${DRY_RUN:-0}"
@@ -205,9 +224,12 @@ for entry in "${REPOS[@]}"; do
       continue
     fi
     echo "  Pushing $branch ..."
-    # authed_url (set above) embeds the token for this push only; redact keeps
-    # it out of the terminal and any log. git -C avoids depending on cwd.
-    git -C "$repo_path" push "$authed_url" "$branch:refs/heads/$branch" --force-with-lease 2>&1 \
+    # GIT_ASKPASS feeds the token to git without embedding it in the URL
+    # or in argv (the token is in the askpass script file, mode 700).
+    GIT_ASKPASS="$askpass_script" GIT_TERMINAL_PROMPT=0 \
+      git -C "$repo_path" \
+      push "https://oauth2@gitlab.com/${NAMESPACE}/${gitlab_project}.git" \
+      "$branch:refs/heads/$branch" --force-with-lease 2>&1 \
       | redact | sed 's/^/    /'
     echo "  pushed $branch"
   done

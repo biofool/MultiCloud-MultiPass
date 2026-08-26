@@ -1,0 +1,137 @@
+repository_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+analysis_timestamp: "2026-08-22T00:00:00Z"
+analyzer_version: context-compiler-v2
+pass_plan:
+  session_scope: full-repo
+  stages_executed: [0, 1, 2, 3, 4, 5, 6, 7, 8]
+  stages_deferred: []
+  components_in_scope:
+    - main-entry
+    - killswitch-actions
+    - budget-alert
+    - dedup
+    - poller
+    - registry
+    - intent-protocol
+    - intent-storage
+    - intent-detection
+    - intent-kill
+    - intent-auth
+    - intent-routes
+    - intent-models
+    - inventory
+    - dashboard
+    - admin-routes
+    - providers-base
+    - providers-gcp
+    - providers-openstack
+    - providers-cloudflare
+    - providers-http-callback
+    - providers-registry
+    - cloud-management-client
+    - terraform
+    - gitlab-mirror
+  components_deferred: []
+coverage:
+  analyzed_domains:
+    - kill-switch-core
+    - intent-actual-protocol
+    - provider-adapters
+    - client-package
+    - infrastructure-terraform
+    - dashboard-ui
+    - inventory
+    - gitlab-mirror
+  excluded_paths:
+    - __pycache__/
+    - .pytest_cache/
+    - "*.pyc"
+commands_run:
+  - "git rev-parse HEAD"
+  - "git log --oneline -5"
+  - "find . -type f -not -path './.git/*'"
+  - "wc -l *.py cloud_management_client/*.py tests/*.py"
+  - "python3 -m pytest tests/ -q"
+commands_not_run:
+  - "terraform plan (requires GCP credentials)"
+  - "gcloud run deploy (production-impacting)"
+limitations:
+  - "pytest-flask version incompatibility causes 45 errors in test_intent.py (AttributeError: 'FlaskClient' object has no attribute 'response_class') — pre-existing, not caused by analysis"
+  - "8 integration tests skipped (require live CloudManagement instance + report token)"
+  - "No live GCP/Firestore/BigQuery verification performed — all claims about runtime behavior are OBSERVED from code or INFERRED"
+artifacts:
+  - path: .ai-context/index.md
+    source_paths: [main.py, AGENTS.md, CLAUDE.md, pyproject.toml]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/quickstart.md
+    source_paths: [main.py, admin_routes.py, intent_routes.py, dashboard.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/architecture/system-overview.md
+    source_paths: [main.py, docs/PRD.md, terraform/]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/architecture/backend.md
+    source_paths: [main.py, killswitch_actions.py, intent.py, poller.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/architecture/infrastructure.md
+    source_paths: [terraform/]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/architecture/data.md
+    source_paths: [registry.py, intent_storage.py, intent_models.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/components/index.md
+    source_paths: [main.py, intent.py, poller.py, registry.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/workflows/budget-alert-kill.md
+    source_paths: [main.py, alerts.py, dedup.py, killswitch_actions.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/workflows/quota-poll-kill.md
+    source_paths: [poller.py, admin_routes.py, main.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/workflows/intent-actual-reporting.md
+    source_paths: [intent_routes.py, intent.py, intent_storage.py, intent_detection.py, intent_kill.py, intent_auth.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/workflows/reconciliation.md
+    source_paths: [admin_routes.py, providers/registry.py, providers/gcp.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/change-impact/relationships.yaml
+    source_paths: [main.py, intent.py, registry.py, providers/]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/conventions/coding-patterns.md
+    source_paths: [main.py, killswitch_actions.py, intent_storage.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/conventions/errors.md
+    source_paths: [main.py, killswitch_actions.py, registry.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/conventions/persistence.md
+    source_paths: [registry.py, intent_storage.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/conventions/configuration.md
+    source_paths: [main.py, .env.example, terraform/terraform.tfvars.example]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/conventions/observability.md
+    source_paths: [main.py, killswitch_actions.py, poller.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/testing/test-map.yaml
+    source_paths: [pyproject.toml, tests/, TEST_PLAN.md]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/decisions/architecture-decisions.md
+    source_paths: [main.py, docs/PRD.md, terraform/]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/decisions/conflicts.yaml
+    source_paths: [main.py, admin_routes.py]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/debt/register.yaml
+    source_paths: [main.py, intent_routes.py, admin_routes.py, tests/]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/unknowns/register.yaml
+    source_paths: [main.py, terraform/, docs/PRD.md]
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+  - path: .ai-context/deltas/latest.yaml
+    source_paths: []
+    last_verified_revision: e65660aca996d3aaa5cf22dd2686afa398700f55
+unresolved_unknowns:
+  - "UNKNOWN-001: Production deployment topology (Cloud Run region, actual project IDs)"
+  - "UNKNOWN-002: Whether Firestore composite indexes are provisioned for intent/actual queries"
+  - "UNKNOWN-003: Actual report token rotation procedure"
+  - "UNKNOWN-004: Whether BigQuery billing export is enabled (Console-only step)"
+prior_analyzed_revision: null

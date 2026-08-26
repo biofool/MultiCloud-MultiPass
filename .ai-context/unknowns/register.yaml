@@ -1,0 +1,132 @@
+# Unknowns Register — MultiCloud-MultiPass
+# Items where evidence is insufficient to establish a claim.
+# Each entry identifies what would verify it.
+# Revision: e65660aca996d3aaa5cf22dd2686afa398700f55 (main)
+
+- id: UNKNOWN-001
+  summary: "Production deployment topology — Cloud Run region, actual project IDs, live config values"
+  classification: UNKNOWN
+  details: |
+    Terraform uses variables (var.project_id, var.region) with no
+    committed terraform.tfvars. The actual hub project ID, Cloud Run
+    region, and monitored project IDs in production are not visible from
+    repo evidence. All references to project IDs in docs use placeholder
+    examples (e.g., "your-project", "your-deprecated-project-id").
+  evidence:
+    - {path: terraform/variables.tf, evidence_type: iac, classification: OBSERVED}
+    - {path: terraform/terraform.tfvars.example, evidence_type: config, classification: OBSERVED}
+    - {path: docs/PRD.md, evidence_type: doc, classification: OBSERVED}
+  verification: "Check committed terraform.tfvars (gitignored) or gcloud run services list in the hub project"
+
+- id: UNKNOWN-002
+  summary: "Whether Firestore composite indexes are provisioned for intent/actual queries"
+  classification: UNKNOWN
+  details: |
+    intent_storage.py uses single-field queries to avoid composite index
+    requirements (OBSERVED in list_actuals — queries by intent_id OR
+    project_id, filters secondary field in memory). However, if any
+    query uses multiple equality filters or filter+orderBy on different
+    fields, a composite index would be needed. No terraform
+    google_firestore_index resource was found in the split Terraform
+    files. If composite indexes are needed but not provisioned, queries
+    will fail with FAILED_PRECONDITION errors at runtime.
+  evidence:
+    - {path: intent_storage.py, symbol: list_actuals, evidence_type: source, classification: OBSERVED}
+    - {path: terraform/, evidence_type: iac, classification: OBSERVED}
+  verification: "Check Firestore indexes in GCP Console or gcloud firestore indexes list for the hub project"
+
+- id: UNKNOWN-003
+  summary: "Actual report token rotation procedure"
+  classification: UNKNOWN
+  details: |
+    intent_auth.py validates per-project bearer tokens via
+    secrets.compare_digest. Tokens are referenced by
+    account.report_token_secret (env var name or Secret Manager ref).
+    No documented procedure for rotating these tokens exists in the
+    repo. The /api/v1/exposure endpoint exists for reporting key
+    exposure, but the rotation workflow (who rotates, how clients get
+    new tokens, how old tokens are invalidated) is not described.
+  evidence:
+    - {path: intent_auth.py, symbol: _validate_token, evidence_type: source, classification: OBSERVED}
+    - {path: intent_routes.py, symbol: report_exposure, evidence_type: source, classification: OBSERVED}
+    - "No rotation runbook or doc found in docs/ or README.md"
+  verification: "Ask project owner for token rotation runbook; check Secret Manager for rotation config"
+
+- id: UNKNOWN-004
+  summary: "Whether BigQuery billing export is enabled in production (Console-only step)"
+  classification: UNKNOWN
+  details: |
+    dashboard.py and providers/gcp.py query BigQuery billing export
+    tables. Terraform provisions the BigQuery dataset
+    (google_bigquery_dataset.cloud_billing_export) but enabling the
+    billing export to populate the table is a manual Console step not
+    captured in IaC. The dashboard degrades gracefully if BigQuery is
+    not configured (warning banner), so this is not a hard failure.
+  evidence:
+    - {path: terraform/storage.tf, symbol: google_bigquery_dataset, evidence_type: iac, classification: OBSERVED}
+    - {path: dashboard.py, symbol: _query_bq, evidence_type: source, classification: OBSERVED}
+  verification: "Check GCP Console → Billing → Billing export → BigQuery export status for the hub billing account"
+
+- id: UNKNOWN-005
+  summary: "Whether a CI/CD pipeline exists outside the repo (e.g., Cloud Build trigger not in this repo)"
+  classification: UNKNOWN
+  details: |
+    No .github/workflows/, .gitlab-ci.yml, or cloudbuild.yaml found in
+    the repo. Terraform provisions Cloud Build triggers for monitored
+    projects (disable_build_triggers in killswitch_actions.py), but
+    there is no evidence of a CI pipeline for this repo itself. It is
+    possible that a Cloud Build trigger exists in the hub project
+    configured outside this repo's Terraform.
+  evidence:
+    - "No .github/workflows/, .gitlab-ci.yml, cloudbuild.yaml found (find command)"
+    - {path: terraform/, evidence_type: iac, classification: OBSERVED}
+  verification: "Check gcloud builds triggers list in the hub project, or ask project owner"
+
+- id: UNKNOWN-006
+  summary: "Whether the reconciliation workflow file (workflows/reconciliation.md) was intended but never created"
+  classification: UNKNOWN
+  details: |
+    workflows/index.md references reconciliation.md and the manifest
+    lists it as an artifact with source_paths, but the file does not
+    exist on disk. The reconciliation workflow is described in
+    admin-routes.md and providers.md component files, and the
+    handle_reconcile endpoint is tested in test_admin_routes.py. Either
+    the file was planned but not created, or it was deleted.
+  evidence:
+    - {path: .ai-context/workflows/index.md, symbol: "Reconciliation", evidence_type: analysis, classification: OBSERVED}
+    - {path: .ai-context/manifest.yaml, symbol: "workflows/reconciliation.md", evidence_type: analysis, classification: OBSERVED}
+    - "File .ai-context/workflows/reconciliation.md does not exist (find command)"
+  verification: "Check git log for .ai-context/workflows/reconciliation.md — may have been deleted or never committed"
+
+- id: UNKNOWN-007
+  summary: "Whether conventions/ and decisions/ artifact files (referenced in manifest) were ever created"
+  classification: UNKNOWN
+  details: |
+    manifest.yaml lists 7 artifacts under conventions/ and decisions/
+    (coding-patterns.md, errors.md, persistence.md, configuration.md,
+    observability.md, architecture-decisions.md, conflicts.yaml) with
+    source_paths and last_verified_revision. None of these files exist
+    on disk. The directories exist but are empty. Either they were
+    planned but not created, or they were deleted.
+  evidence:
+    - {path: .ai-context/manifest.yaml, symbol: artifacts, evidence_type: analysis, classification: OBSERVED}
+    - "find .ai-context/conventions/ .ai-context/decisions/ returns empty directories"
+  verification: "Check git log for .ai-context/conventions/ and .ai-context/decisions/ contents"
+
+- id: UNKNOWN-008
+  summary: "Runtime behavior of async report_actual under Cloud Run scale-to-zero"
+  classification: UNKNOWN
+  details: |
+    cloud_management_client report_actual is async (background daemon
+    thread) by default. When running on Cloud Run with scale-to-zero
+    and concurrency=1, the client (running in sub-projects, not the hub)
+    may have its background thread killed if the sub-project's Cloud Run
+    instance scales to zero before the spool flushes. The durable spool
+    (spool.py) should survive, but the interaction between async
+    reporting, spool durability, and Cloud Run cold starts has not been
+    verified at runtime.
+  evidence:
+    - {path: cloud_management_client/_actual_ops.py, symbol: report_actual, evidence_type: source, classification: OBSERVED}
+    - {path: cloud_management_client/spool.py, evidence_type: source, classification: OBSERVED}
+    - {path: terraform/cloud_run.tf, symbol: "scale 0-1", evidence_type: iac, classification: OBSERVED}
+  verification: "Run integration test with a real Cloud Run sub-project; observe spool recovery after cold start"

@@ -96,8 +96,10 @@ class _LifecycleMixin:
         # Background queue for async report_actual calls. Items are spool
         # entry IDs (or None as the stop sentinel). Retry entries carry
         # a due-time so the worker doesn't sleep inline (issue #1 part 3).
+        # Two worker threads share this queue so a retry backoff on one
+        # entry does not head-of-line-block delivery of others (issue #1).
         self._queue: queue.Queue[Any] = queue.Queue()
-        self._worker: threading.Thread | None = None
+        self._workers: list[threading.Thread] = []
         self._worker_lock = threading.Lock()
         # Transient in-memory entries for when the spool is disabled.
         self._inline_entries: dict[str, dict[str, Any]] = {}
@@ -163,26 +165,32 @@ class _LifecycleMixin:
                 self._client_seq[intent_id] = seq
 
     def _ensure_worker(self) -> None:
-        """Start the background worker thread if not already running.
+        """Start the background worker threads if not already running.
+
+        Two worker threads share the queue so a retry backoff on one
+        entry does not head-of-line-block delivery of others (issue #1).
 
         Also replays any spool entries left by a previous process — this is
         the headline scenario for issue #12 (test_spool_survives_process_restart).
         """
-        if self._worker is not None and self._worker.is_alive():
+        if self._workers and all(w.is_alive() for w in self._workers):
             return
         with self._worker_lock:
-            if self._worker is not None and self._worker.is_alive():
+            if self._workers and all(w.is_alive() for w in self._workers):
                 return
             # Replay spool entries from a previous process before starting
-            # the worker, so they are processed in order.
+            # the workers, so they are processed in order.
             for entry_id in self._spool.list_entries():
                 self._queue.put(entry_id)
-            self._worker = threading.Thread(
-                target=self._worker_loop,
-                name="cloud-management-reporter",
-                daemon=True,
-            )
-            self._worker.start()
+            self._workers = []
+            for i in range(2):
+                t = threading.Thread(
+                    target=self._worker_loop,
+                    name=f"cloud-management-reporter-{i}",
+                    daemon=True,
+                )
+                t.start()
+                self._workers.append(t)
 
     def _sleep(self, seconds: float) -> None:
         """Indirection so tests can mock sleep without actually waiting."""
@@ -191,13 +199,19 @@ class _LifecycleMixin:
     def _worker_loop(self) -> None:
         """Process queued report_actual requests with spool-backed retry.
 
+        Two worker threads run this loop concurrently, sharing a single
+        queue (issue #1). When one worker pulls a not-yet-due retry entry
+        and re-enqueues it with a brief sleep, the other worker keeps
+        draining ready entries — so a backoff on one entry no longer
+        head-of-line-blocks delivery of the rest.
+
         Issue #1 part 3: retry entries carry a due-time so the worker
-        does not sleep inline. Instead of blocking the single worker
-        thread on a backoff timer (which head-of-line-blocks every
-        subsequent report), failed entries are re-enqueued with a
-        due-time and the worker immediately picks up the next ready
-        entry. The queue holds either plain entry IDs (str) or
-        ``(entry_id, due_time)`` tuples for retries.
+        does not sleep inline. Instead of blocking a worker thread on a
+        backoff timer (which head-of-line-blocks every subsequent
+        report), failed entries are re-enqueued with a due-time and the
+        worker immediately picks up the next ready entry. The queue
+        holds either plain entry IDs (str) or ``(entry_id, due_time)``
+        tuples for retries.
         """
         while True:
             item = self._queue.get()
@@ -311,12 +325,15 @@ class _LifecycleMixin:
         # Timeout expired — pending items remain in the spool for replay
 
     def close(self) -> None:
-        """Signal the background worker to stop and wait briefly.
+        """Signal the background worker threads to stop and wait briefly.
 
         Issue #1 part 3: the sentinel is put at the front of the queue
         (via a new PriorityQueue-style approach) so shutdown is not
         blocked behind pending retry entries. Pending entries remain in
         the on-disk spool for replay on next startup.
+
+        Two workers share the queue, so the None sentinel is enqueued
+        once per worker so both threads shut down cleanly (issue #1).
         """
         # Drain the queue of retry entries, then put the sentinel.
         # This ensures shutdown is not blocked behind retry backoffs.
@@ -327,6 +344,9 @@ class _LifecycleMixin:
                 self._queue.task_done()
             except queue.Empty:
                 break
-        self._queue.put(None)
-        if self._worker is not None:
-            self._worker.join(timeout=2.0)
+        # One sentinel per worker thread so both shut down.
+        for _ in self._workers:
+            self._queue.put(None)
+        for w in self._workers:
+            w.join(timeout=2.0)
+        self._workers = []
