@@ -32,3 +32,12 @@ dev = [
 
 [tool.setuptools]
 packages = ["cloud_management_client"]
+
+[tool.pytest.ini_options]
+# The test suite uses a fixture named `app` that returns a Flask test client
+# (FlaskClient), not a Flask app. The pytest-flask plugin ships an autouse
+# fixture (`_monkeypatch_response_class`) that assumes the `app` fixture
+# returns a Flask app and accesses `app.response_class`, which fails with
+# AttributeError on a FlaskClient. These tests don't use pytest-flask
+# features, so disable the plugin to avoid the collision.
+addopts = "-p no:flask"
