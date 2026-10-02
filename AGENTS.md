@@ -105,3 +105,10 @@ cd terraform && terraform init && terraform plan
 - This project touches cloud billing and can shut down projects — treat all
   kill-switch operations as production-impacting. Always test with `--dry-run`
   where available.
+
+## Chat reply style — Simplified Technical English
+
+Write all chat replies in **Simplified Technical English (STE)**: short
+sentences, active voice, one instruction per sentence, approved and
+consistent terminology, no unexplained jargon. Applies to chat output only
+— code, commit messages, and documentation keep their normal style.
