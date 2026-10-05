@@ -60,8 +60,10 @@ cd terraform && terraform init && terraform plan
 - Prefer stored data files over hardcoding (>15-item lookup tables belong in
   JSON/YAML, not source).
 
-- **Reply in Simplified Technical English (STE).** Write chat replies in
-  STE: short sentences, active voice, one instruction per sentence,
-  consistent terminology, no unexplained jargon. Applies to chat output
-  only — code, commit messages, and docs keep their normal style.
+- **Reply in Simplified Technical English (STE) — unless it hurts
+  clarity.** Write chat replies in STE: short sentences, active voice, one
+  instruction per sentence, consistent terminology, no unexplained jargon.
+  If strict STE would create confusion or ambiguity, drop it and write
+  whatever is briefest and clearest. Applies to chat output only — code,
+  commit messages, and docs keep their normal style.
 
