@@ -27,3 +27,4 @@ terraform/terraform.tfstate.*.backup
 
 # Audit outputs (runtime artifacts)
 data/audit/
+.deploy-audit-skip.log

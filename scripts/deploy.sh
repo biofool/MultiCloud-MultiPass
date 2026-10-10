@@ -4,10 +4,12 @@ set -euo pipefail
 # --- Debug/Verbose flags ---
 DEBUG=false
 VERBOSE=false
+SKIP_AUDIT=false
 while [[ $# -gt 0 ]]; do
     case "$1" in
         -d|--debug) DEBUG=true; shift ;;
         -v|--verbose) VERBOSE=true; shift ;;
+        --skip-audit) SKIP_AUDIT=true; shift ;;
         *) break ;;
     esac
 done
@@ -33,6 +35,19 @@ SA_NAME="killswitch-rt"
 TOPIC="budget-alerts"
 SUBSCRIPTION="killswitch-push"
 ARTIFACT_REPO="cloud-billing"
+
+# Dependency-audit deploy gate — SCA layer 3 (biofool/CloudManagement#88).
+if $SKIP_AUDIT; then
+    echo "  !! DEPENDENCY AUDIT SKIPPED (--skip-audit) — deploying despite known/unchecked findings" >&2
+    echo "$(date -u +%FT%TZ) skip-audit deploy.sh ${PROJECT_ID} user=${USER:-?}" >> .deploy-audit-skip.log
+elif [[ ! -f scripts/audit-deps.sh ]]; then
+    echo "  !! scripts/audit-deps.sh missing — deploy gate cannot run. Sync it from biofool/starter." >&2
+    exit 1
+else
+    echo "Dependency audit (deploy gate)…"
+    bash scripts/audit-deps.sh || { echo "  DEPLOY BLOCKED — dependency findings. Fix them or use --skip-audit (emergency, logged)." >&2; exit 1; }
+    echo "  Dependency audit passed"
+fi
 
 echo "=== Deploying cost kill switch to ${PROJECT_ID} ==="
 
