@@ -8,6 +8,124 @@ CloudManagement evolved from the GCP Cost Kill Switch (formerly CloudBilling) an
 2. **Cost kill switch** — centralized cost-control for a small team of independent cloud developers. One hub project watches every teammate's GCP project and can automatically stop runaway spend — from a fast quota-based trip in minutes, down to a nuclear billing shutoff.
 3. **Intent/actual reporting hub** — sub-projects declare expected API usage before making calls and report actuals after. CloudManagement validates actual vs intent, detects overruns, and can kill the specific job that is accumulating cost. This layer is **provider-agnostic** — it works for GCP, OpenStack, Cloudflare, and any third-party API without needing each cloud's billing API in the hot path.
 
+## How to use this project
+
+### Setup
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+```
+
+Copy `.env.example` to `.env` and fill in your project IDs, billing account,
+and report tokens. Copy `config/accounts.example.yaml` to `config/accounts.yaml`
+and add the projects you want to monitor.
+
+### Run locally
+
+```bash
+source .venv/bin/activate
+DRY_RUN=true python main.py
+```
+
+The service listens on port 8080 by default. `DRY_RUN=true` logs every action
+without touching cloud resources.
+
+### Common commands
+
+| Task | Command |
+|------|---------|
+| Run tests | `python -m pytest tests/ -v` |
+| Run the service locally | `DRY_RUN=true python main.py` |
+| Trigger a quota poll manually | `curl -X POST http://localhost:8080/poll` |
+| Check service config and endpoints | `curl http://localhost:8080/` |
+| View inventory | `curl http://localhost:8080/api/v1/inventory` |
+| Register a project | `python scripts/register_project.py --project my-proj --billing-account XXXX-XXXX-XXXX --owner me@example.com` |
+| Build Terraform plan | `cd terraform && terraform init && terraform plan` |
+
+### Deployment notes
+
+Two paths are supported:
+
+1. **Terraform** (recommended): use the files in `terraform/`. Copy
+   `terraform.tfvars.example` to `terraform.tfvars`, add your org or folder ID
+   and monitored project list, then run
+   `terraform init && terraform plan && terraform apply`.
+2. **gcloud script**: run `bash scripts/deploy.sh PROJECT_ID BILLING_ACCOUNT_ID [REGION]`.
+   It enables APIs, builds the container, deploys to Cloud Run, and creates
+   the Pub/Sub topic and push subscription. Budget and BigQuery export setup
+   still require manual steps shown at the end of the script.
+
+The service is designed to run in its own hub project. It needs IAM roles at
+organization or folder level so it can act on other projects without
+per-project setup.
+
+### Sub-project integration
+
+Install the client in a monitored project:
+
+```bash
+pip install cloud-management-client
+```
+
+Declare intent before a batch of API calls:
+
+```python
+from cloud_management_client import CloudManagementClient
+
+cb = CloudManagementClient(
+    project_id="my-project",
+    report_token=os.environ["CLOUDMANAGEMENT_REPORT_TOKEN_MYPROJECT"],
+)
+
+intent = cb.declare_intent(
+    job_id="batch-001",
+    provider="google",
+    api="places-nearbysearch",
+    expected_calls=500,
+    expected_cost_usd=10.0,
+)
+```
+
+Report actuals after the calls:
+
+```python
+cb.report_actual(
+    intent_id=intent.intent_id,
+    actual_calls=480,
+    actual_cost_usd=9.50,
+    status="completed",
+    sync=True,
+)
+```
+
+### Important caveats
+
+- `DRY_RUN=true` is the default. No cloud resources are changed until you
+  set `DRY_RUN=false`.
+- The hub project is hard-blocked from self-kill via `SELF_PROJECT_ID`.
+  Budget alerts for the hub project go to email only.
+- The billing-alert path has a 12–24 hour lag because Cloud Billing budget
+  alerts are not real time. The quota poller and intent/actual paths are
+  faster.
+- All actions are logged as structured JSON to stdout. Use `LOG_LEVEL`
+  to control verbosity.
+- The `cloud_auth/` directory and `config/accounts.yaml` contain secrets.
+  Both are gitignored. Never commit them.
+- Cloud Run deployment in `scripts/deploy.sh` currently sets
+  `--allow-unauthenticated`. For production, restrict invokers to the
+  service account and Pub/Sub as shown in `terraform/iam.tf`.
+
+### Documentation
+
+- `EXECUTIVE-SUMMARY.md` — business-level benefits for small teams and
+  somatic studios.
+- `TECHNOLOGY-UNDERPINNINGS.md` — how each feature is implemented and
+  which files to read.
+- `docs/PRD.md` — full product requirements, inventory schema, and
+  job-placement policy.
+
 ## Free-tier optimization strategy
 
 Your project portfolio may span multiple cloud accounts across several providers (GCP, OpenStack, Cloudflare, HuggingFace). Most of these have meaningful free tiers — but free tiers are per-account, per-API, and reset on different schedules (daily vs monthly). Without a central coordinator, a small team will either leave free-tier capacity on the table (paying for calls that could have been free) or accidentally blow past a free-tier limit and incur surprise charges.
@@ -270,7 +388,7 @@ intent = cb.declare_intent(
     job_id="gemini-session-abc123",
     job_name="coaching-chat-batch",
     provider="google",
-    endpoint="generate_content",
+    api="generate_content",
     expected_calls=10,
     expected_cost_usd=0.02,
     rate_limit_rpm=10,
