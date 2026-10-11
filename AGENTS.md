@@ -27,6 +27,22 @@ and documented env vars. The root `.gitignore` excludes `.env`, `*.key`,
 `*.pem`, `credentials.json`, and `cookies.txt` — keep those entries when
 editing `.gitignore`.
 
+### Don't trust, verify — adversarial checks before "done"
+
+Post-edit lint hooks run automatically on every edited file
+(`.claude/hooks/post_edit_lint.py` for Claude Code, the
+`magic-compact-devin` plugin hook for Devin): ruff/py_compile, `php -l`,
+`node --check`, `bash -n`/shellcheck, `json.tool`, gofmt, pyyaml. A hook
+finding is a defect — fix it. Before reporting done: run the repo's own
+gates, review the diff adversarially (callers, edge cases, leftovers,
+secrets, silent catches), and name the command that proves the claim.
+The `verify-change` skill encodes this gate.
+
+### Automate the annoying stuff
+
+A process explained more than once becomes a hook, a `scripts/` tool, or
+a `.devin/skills/<name>/SKILL.md` — not repeated prompt text.
+
 ### Never fail silently
 
 Every exception, auth failure, or unavailable dependency must be logged at
