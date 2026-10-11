@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import threading
 import time
 from typing import Any
@@ -72,6 +73,16 @@ class _Spool:
             self._counter += 1
             return f"{time.time():.6f}_{os.getpid()}_{self._counter}"
 
+    _ENTRY_ID_RE = re.compile(r"[A-Za-z0-9_.\-]+")
+
+    def _entry_path(self, entry_id: str) -> str | None:
+        """Resolve an entry ID to a path inside the spool dir. Returns None
+        if the ID is not a plain basename (path traversal guard)."""
+        if not entry_id or entry_id.startswith(".") or not self._ENTRY_ID_RE.fullmatch(entry_id):
+            log.warning("cloud_management: refusing invalid spool entry id")
+            return None
+        return os.path.join(self.dir, f"{entry_id}.json")
+
     def write(self, path: str, payload: dict[str, Any], client_seq: int = 0) -> str | None:
         """Persist a report to the spool. Returns the entry ID, or None if
         the spool is disabled or unwritable. Enforces the cap by dropping
@@ -90,7 +101,9 @@ class _Spool:
         }
         try:
             with self._lock:
-                filepath = os.path.join(self.dir, f"{entry_id}.json")
+                filepath = self._entry_path(entry_id)
+                if filepath is None:
+                    return None
                 # Atomic write: write to temp then rename
                 tmp = filepath + ".tmp"
                 with open(tmp, "w", encoding="utf-8") as f:
@@ -126,7 +139,9 @@ class _Spool:
         if not self._enabled:
             return None
         try:
-            filepath = os.path.join(self.dir, f"{entry_id}.json")
+            filepath = self._entry_path(entry_id)
+            if filepath is None:
+                return None
             with open(filepath, "r", encoding="utf-8") as f:
                 return json.load(f)
         except (OSError, json.JSONDecodeError) as e:
@@ -138,7 +153,10 @@ class _Spool:
         if not self._enabled:
             return
         try:
-            os.remove(os.path.join(self.dir, f"{entry_id}.json"))
+            filepath = self._entry_path(entry_id)
+            if filepath is None:
+                return
+            os.remove(filepath)
         except FileNotFoundError:
             pass  # already removed
         except OSError as e:
@@ -149,7 +167,9 @@ class _Spool:
         if not self._enabled:
             return
         try:
-            filepath = os.path.join(self.dir, f"{entry_id}.json")
+            filepath = self._entry_path(entry_id)
+            if filepath is None:
+                return
             with open(filepath, "r", encoding="utf-8") as f:
                 entry = json.load(f)
             entry["attempts"] = attempts

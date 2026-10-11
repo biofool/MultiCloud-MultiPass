@@ -18,6 +18,11 @@ COPY cloud_management_client/ ./cloud_management_client/
 # but that isn't copied into the image — set explicitly here).
 ENV CLOUDMANAGEMENT_ROOT=/app
 
+# Run as non-root; /app must be writable for config/ runtime state
+# (api_actuals.yaml etc.) when USE_FIRESTORE=false.
+RUN useradd --create-home --uid 1000 app && chown -R app:app /app
+USER app
+
 EXPOSE 8080
 
 CMD ["python", "main.py"]

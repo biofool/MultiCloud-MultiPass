@@ -47,6 +47,7 @@ from pathlib import Path
 # itself.
 import urllib.request
 import urllib.error
+import urllib.parse
 
 # Resolve project root so data/audit paths work from any CWD
 _PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -66,6 +67,8 @@ def _get_access_token() -> str:
 
 def _api_get(url: str, token: str, headers: dict | None = None) -> dict:
     """GET a Google API endpoint and return parsed JSON."""
+    if urllib.parse.urlsplit(url).scheme != "https":
+        return {"_error": True, "status": 0, "body": "refused non-https url"}
     hdrs = {"Authorization": f"Bearer {token}"}
     if headers:
         hdrs.update(headers)
@@ -79,6 +82,8 @@ def _api_get(url: str, token: str, headers: dict | None = None) -> dict:
 
 def _api_post(url: str, token: str, body: dict, headers: dict | None = None) -> dict:
     """POST a Google API endpoint and return parsed JSON."""
+    if urllib.parse.urlsplit(url).scheme != "https":
+        return {"_error": True, "status": 0, "body": "refused non-https url"}
     hdrs = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     if headers:
         hdrs.update(headers)

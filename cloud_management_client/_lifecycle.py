@@ -11,6 +11,7 @@ from __future__ import annotations
 import os
 import queue
 import random
+import urllib.parse
 import threading
 import time
 from typing import Any
@@ -111,12 +112,15 @@ class _LifecycleMixin:
             log.warning("cloud_management: project_id not set — client disabled")
         if not self.report_token and not self.use_identity:
             log.warning("cloud_management: report_token not set and use_identity=False — client disabled")
+        if urllib.parse.urlsplit(self.base_url).scheme not in ("http", "https"):
+            log.error("cloud_management: base_url is not http/https — client disabled")
+            self.base_url = ""
 
     @property
     def enabled(self) -> bool:
         # In identity mode, the token is fetched at request time from the
         # metadata server, so report_token is not required.
-        return bool(self.project_id and (self.report_token or self.use_identity))
+        return bool(self.project_id and self.base_url and (self.report_token or self.use_identity))
 
     # ------------------------------------------------------------------
     # Background worker for async report_actual

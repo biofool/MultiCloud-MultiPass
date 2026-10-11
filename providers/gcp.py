@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from datetime import datetime
 from typing import Any
 
@@ -189,6 +190,11 @@ class GcpProvider(CostProvider):
 
         table_suffix = billing_account.replace("-", "_")
         table = f"{_hub_project_id()}.{_bq_dataset()}.gcp_billing_export_resource_v1_{table_suffix}"
+        # Table names cannot be query parameters — validate the identifier
+        # strictly before interpolating it into the SQL string.
+        if not re.fullmatch(r"[A-Za-z0-9\-]+\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+", table):
+            log.error(json.dumps({"event": "reconcile_error", "project": project_id, "reason": "invalid table identifier"}))
+            return []
 
         query = f"""
             SELECT
@@ -200,7 +206,7 @@ class GcpProvider(CostProvider):
               usage.unit AS usage_unit_type,
               DATE(usage_start_time) AS period_date
             FROM `{table}`
-            WHERE invoice.month = FORMAT_DATE('%Y%m', '{since:%Y-%m-%d}')
+            WHERE invoice.month = FORMAT_DATE('%Y%m', DATE(@since))
               AND project.id = @project_id
               AND usage_start_time >= @since
               AND usage_start_time < @until

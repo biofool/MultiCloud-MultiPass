@@ -31,6 +31,12 @@ _PERMANENT_HTTP_CODES = frozenset(
 )
 
 
+def _is_http_url(url: str) -> bool:
+    """True if the URL uses http/https — urllib.request also accepts
+    file:// and other schemes, which this client must never fetch."""
+    return urllib.parse.urlsplit(url).scheme in ("http", "https")
+
+
 def _is_permanent_error(exc: Exception) -> bool:
     """Return True if ``exc`` is an HTTPError with a permanent status code.
 
@@ -146,6 +152,9 @@ class _TransportMixin:
         if not self.enabled:
             return None, None
         url = f"{self.base_url}{path}"
+        if not _is_http_url(url):
+            _fail(f"POST {path} refused: base_url is not http/https", strict=self.strict)
+            return None, None
         body = json.dumps(payload).encode("utf-8")
         headers = {
             "Content-Type": "application/json",
@@ -182,6 +191,9 @@ class _TransportMixin:
         if not self.enabled:
             return None
         url = f"{self.base_url}{path}"
+        if not _is_http_url(url):
+            _fail(f"GET {path} refused: base_url is not http/https", strict=self.strict)
+            return None
         headers = {
             "Authorization": f"Bearer {self._auth_token()}",
         }

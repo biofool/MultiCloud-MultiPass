@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import urllib.parse
 from typing import Any
 
 from providers.base import CostProvider, KillResult
@@ -38,6 +39,11 @@ class HttpCallbackProvider(CostProvider):
 
         if not url:
             return KillResult(killed=False, job_id=job_id, error="no url in kill descriptor")
+
+        if urllib.parse.urlsplit(url).scheme not in ("http", "https"):
+            return KillResult(killed=False, job_id=job_id, error="callback url must be http/https")
+        if method not in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+            return KillResult(killed=False, job_id=job_id, error=f"unsupported callback method {method}")
 
         if _dry_run():
             log.info(json.dumps({

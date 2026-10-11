@@ -20,6 +20,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -37,6 +38,11 @@ bp = flask.Blueprint("dashboard", __name__, template_folder="templates", static_
 # ---------------------------------------------------------------------------
 
 BQ_BILLING_TABLE = os.environ.get("BQ_BILLING_TABLE", "")
+# The table name is interpolated into BigQuery SQL (it cannot be a query
+# parameter), so only accept a strict project.dataset.table identifier.
+if BQ_BILLING_TABLE and not re.fullmatch(r"[A-Za-z0-9\-]+\.[A-Za-z0-9_]+\.[A-Za-z0-9_]+", BQ_BILLING_TABLE):
+    log.error(json.dumps({"event": "config_error", "setting": "BQ_BILLING_TABLE", "reason": "invalid table identifier"}))
+    BQ_BILLING_TABLE = ""
 BQ_DATASET = os.environ.get("BQ_DATASET", "cloud_billing_export")
 BUDGET_AMOUNT_USD = float(os.environ.get("BUDGET_AMOUNT_USD", "5"))
 HUB_PROJECT_ID = os.environ.get("HUB_PROJECT_ID") or (BQ_BILLING_TABLE.split(".")[0] if BQ_BILLING_TABLE else "")
@@ -122,6 +128,9 @@ ORDER BY usage_date ASC
 
 
 def _sql_top_services(limit: int = 10) -> str:
+    # LIMIT cannot be a query parameter — clamp to a safe int before
+    # interpolating into the SQL string.
+    limit = max(1, min(int(limit), 100))
     return f"""
 SELECT
   service.description AS service_name,
