@@ -1,18 +1,17 @@
 # Executive Summary — CloudManagement
 
 CloudManagement is a multi-cloud cost kill switch and usage-reporting hub.
-It helps small somatic studios and field teams control cloud spend and
-operational risk when they run services such as booking systems, client
-chat, video hosting, payment APIs, and automated outreach.
+Not studio-facing — internal infrastructure for the biofool portfolio. It
+helps operators control cloud spend and operational risk.
 
-## What it does for a small studio
+## What it does
 
 - **Prevents surprise cloud bills.** A runaway script, stuck cron job, or
   retry storm can rack up charges in hours. CloudManagement detects spikes
   and stops the runaway workload before the bill grows.
-- **Protects client-facing services.** It can stop only the misbehaving job
-  instead of taking down the whole project, so booking pages, client portals,
-  and chat tools stay available.
+- **Protects other services.** It can stop only the misbehaving job
+  instead of taking down the whole project, so unrelated workloads stay
+  available.
 - **Shows all cloud accounts in one place.** The inventory in
   `inventory.py` and the registry in `registry.py` list every monitored
   project, service, and job. A small team can see where data lives and
@@ -36,7 +35,7 @@ can test the system before it touches production workloads.
 
 ## Bottom line
 
-For a somatic studio or field team that depends on cloud services but has
-limited time to watch dashboards, CloudManagement provides automated guard
-rails: it watches spend, isolates runaway costs, and keeps a single
-inventory of cloud resources.
+For operators who depend on cloud services but have limited time to watch
+dashboards, CloudManagement provides automated guard rails: it watches
+spend, isolates runaway costs, and keeps a single inventory of cloud
+resources.
