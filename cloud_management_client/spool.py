@@ -163,21 +163,27 @@ class _Spool:
             _fail(f"spool remove failed for {entry_id}", e, strict=self.strict)
 
     def update_attempt(self, entry_id: str, attempts: int) -> None:
-        """Update the attempt count and last_attempt_at for an entry."""
+        """Update the attempt count and last_attempt_at for an entry.
+
+        Holds ``_lock`` so the read-modify-write is atomic across the two
+        worker threads — without it a lost update would reset the counter
+        and extend the retry lifetime.
+        """
         if not self._enabled:
             return
         try:
-            filepath = self._entry_path(entry_id)
-            if filepath is None:
-                return
-            with open(filepath, "r", encoding="utf-8") as f:
-                entry = json.load(f)
-            entry["attempts"] = attempts
-            entry["last_attempt_at"] = time.time()
-            tmp = filepath + ".tmp"
-            with open(tmp, "w", encoding="utf-8") as f:
-                json.dump(entry, f)
-            os.rename(tmp, filepath)
+            with self._lock:
+                filepath = self._entry_path(entry_id)
+                if filepath is None:
+                    return
+                with open(filepath, "r", encoding="utf-8") as f:
+                    entry = json.load(f)
+                entry["attempts"] = attempts
+                entry["last_attempt_at"] = time.time()
+                tmp = filepath + ".tmp"
+                with open(tmp, "w", encoding="utf-8") as f:
+                    json.dump(entry, f)
+                os.rename(tmp, filepath)
         except (OSError, json.JSONDecodeError) as e:
             _fail(f"spool update failed for {entry_id}", e, strict=self.strict)
 

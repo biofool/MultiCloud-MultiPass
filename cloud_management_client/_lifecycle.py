@@ -108,6 +108,14 @@ class _LifecycleMixin:
         # worker to distinguish permanent (4xx) from transient failures.
         self._last_exc: Exception | None = None
 
+        # Entry IDs currently sitting in _queue (or waiting on a retry
+        # due-time). Replay must not enqueue an entry already in-flight —
+        # that double-delivers the report and double-counts spend. Its own
+        # lock: _worker_lock is already held during replay when
+        # _enqueue_entry runs, and Lock is not re-entrant.
+        self._inflight: set[str] = set()
+        self._inflight_lock = threading.Lock()
+
         if not self.project_id:
             log.warning("cloud_management: project_id not set — client disabled")
         if not self.report_token and not self.use_identity:
@@ -115,6 +123,13 @@ class _LifecycleMixin:
         if urllib.parse.urlsplit(self.base_url).scheme not in ("http", "https"):
             log.error("cloud_management: base_url is not http/https — client disabled")
             self.base_url = ""
+        else:
+            parts = urllib.parse.urlsplit(self.base_url)
+            if parts.scheme == "http" and parts.hostname not in ("127.0.0.1", "::1", "localhost"):
+                log.warning(
+                    "cloud_management: base_url is plaintext http to a non-local host — "
+                    "bearer/gate tokens are sent unencrypted"
+                )
 
     @property
     def enabled(self) -> bool:
@@ -183,9 +198,11 @@ class _LifecycleMixin:
             if self._workers and all(w.is_alive() for w in self._workers):
                 return
             # Replay spool entries from a previous process before starting
-            # the workers, so they are processed in order.
+            # the workers, so they are processed in order. _enqueue_entry
+            # dedups against _inflight so an entry already queued by a
+            # report_actual call isn't delivered twice (issue #5).
             for entry_id in self._spool.list_entries():
-                self._queue.put(entry_id)
+                self._enqueue_entry(entry_id)
             self._workers = []
             for i in range(2):
                 t = threading.Thread(
@@ -195,6 +212,19 @@ class _LifecycleMixin:
                 )
                 t.start()
                 self._workers.append(t)
+
+    def _enqueue_entry(self, entry_id: str) -> None:
+        """Queue a spool entry for delivery unless it is already in-flight.
+
+        The worker removes the ID from ``_inflight`` once the entry reaches
+        a terminal state (delivered, dropped, or unreadable); a retry stays
+        in-flight because it is re-queued as a (entry_id, due_time) tuple.
+        """
+        with self._inflight_lock:
+            if entry_id in self._inflight:
+                return
+            self._inflight.add(entry_id)
+        self._queue.put(entry_id)
 
     def _sleep(self, seconds: float) -> None:
         """Indirection so tests can mock sleep without actually waiting."""
@@ -248,13 +278,17 @@ class _LifecycleMixin:
             else:
                 entry_id = item
             try:
-                self._process_spool_entry(entry_id)
+                done = self._process_spool_entry(entry_id)
             except Exception as e:
                 _fail("async report_actual failed", e, strict=self.strict)
+                done = True  # entry stays in the spool; a later replay retries it
             finally:
+                if done:
+                    with self._inflight_lock:
+                        self._inflight.discard(entry_id)
                 self._queue.task_done()
 
-    def _process_spool_entry(self, entry_id: str) -> None:
+    def _process_spool_entry(self, entry_id: str) -> bool:
         """Attempt to deliver a spool entry once, re-enqueuing on transient failure.
 
         Issue #1 parts 3-4: instead of retrying inline with exponential
@@ -263,18 +297,25 @@ class _LifecycleMixin:
         with a due-time if the failure is transient. Permanent failures
         (HTTP 4xx except 408/429) are dropped immediately — retrying a
         400 Bad Request or 401 Unauthorized 10 times over 24h is pure waste.
+
+        Returns True when the entry reached a terminal state (delivered,
+        dropped, or unreadable) so the worker frees its in-flight slot;
+        False when it was re-queued for a later retry.
         """
         # Inline (spool disabled) — single attempt, no retry.
         if entry_id.startswith("inline_"):
             entry = self._inline_entries.pop(entry_id, None)
             if entry is None:
-                return
+                return True
             self._post_sync(entry["path"], entry["payload"])
-            return
+            return True
 
         entry = self._spool.read(entry_id)
         if entry is None:
-            return  # entry was lost or corrupted — nothing to deliver
+            # Corrupt or unreadable file — drop it, or it is re-listed and
+            # silently skipped at every startup forever (poison pill).
+            self._spool.drop(entry_id, "spool entry unreadable or corrupt")
+            return True
         attempts = entry.get("attempts", 0)
 
         # Single attempt — no inline retry loop (issue #1 part 3).
@@ -283,23 +324,24 @@ class _LifecycleMixin:
         if data is not None:
             # Confirmed delivery — remove from spool.
             self._spool.remove(entry_id)
-            return
+            return True
 
         # Check if this is a permanent failure (issue #1 part 4).
         if exc is not None and _is_permanent_error(exc):
             self._spool.drop(entry_id, f"permanent failure (HTTP {getattr(exc, 'code', '?')}): {exc}")
-            return
+            return True
 
         attempts += 1
         self._spool.update_attempt(entry_id, attempts)
         if self._spool.is_expired({**entry, "attempts": attempts}):
             self._spool.drop(entry_id, f"max attempts ({attempts}) or max age exceeded")
-            return
+            return True
         # Re-enqueue with a due-time instead of sleeping inline.
         # Exponential backoff with jitter: base * 2^(attempts-1) + random
         backoff = min(1.0 * (2 ** (attempts - 1)) + random.uniform(0, 1), 60.0)
         due_time = time.monotonic() + backoff
         self._queue.put((entry_id, due_time))
+        return False
 
     def flush(self, timeout: float = 5.0) -> None:
         """Wait for all pending async report_actual calls to complete.
@@ -354,3 +396,7 @@ class _LifecycleMixin:
         for w in self._workers:
             w.join(timeout=2.0)
         self._workers = []
+        # Entries were drained unprocessed — free their in-flight slots so
+        # the next _ensure_worker replay can re-queue them.
+        with self._inflight_lock:
+            self._inflight.clear()

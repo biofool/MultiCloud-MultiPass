@@ -137,7 +137,9 @@ class _ActualOpsMixin:
             entry_id = self._spool.write("/api/v1/actual", payload, client_seq=seq)
             self._ensure_worker()
             if entry_id is not None:
-                self._queue.put(entry_id)
+                # Deduped — _ensure_worker's replay may already have queued
+                # this just-written entry when the workers were down.
+                self._enqueue_entry(entry_id)
             else:
                 # Spool disabled — fall back to direct enqueue (best-effort,
                 # no retry, matches pre-#12 behaviour).

@@ -104,13 +104,16 @@ gcloud artifacts repositories create "${ARTIFACT_REPO}" \
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/killswitch:latest"
 gcloud builds submit --tag "${IMAGE}" --project="${PROJECT_ID}"
 
-# 8. Deploy to Cloud Run (scale-to-zero, internal ingress)
+# 8. Deploy to Cloud Run (scale-to-zero, internal ingress).
+# No --allow-unauthenticated: terraform grants roles/run.invoker only to the
+# runtime SA (Pub/Sub push + Scheduler OIDC). Deploying unauthenticated would
+# expose intent enumeration, admin routes, and forged budget alerts on the
+# public origin URL — clients must use identity tokens (issue #5).
 gcloud run deploy "${SERVICE_NAME}" \
   --image="${IMAGE}" \
   --region="${REGION}" \
   --project="${PROJECT_ID}" \
   --service-account="${SA_EMAIL}" \
-  --allow-unauthenticated \
   --min-instances=0 \
   --max-instances=1 \
   --memory=256Mi \

@@ -214,3 +214,39 @@ def test_two_worker_threads_started(tmp_path):
     assert len(client._workers) == 2, "exactly 2 worker threads should be started"
     assert all(w.is_alive() for w in client._workers), "both workers should be alive"
     client.close()
+
+
+def test_corrupt_spool_entry_is_dropped_not_replayed_forever(tmp_path):
+    """A poison-pill entry must be removed, not re-listed at every startup."""
+    bad = tmp_path / "9999999999.000000_1_99.json"
+    bad.write_text("{not json", encoding="utf-8")
+    client = _client(tmp_path)
+    assert client._process_spool_entry("9999999999.000000_1_99") is True
+    assert not bad.exists()
+
+
+def test_enqueue_entry_dedups_inflight(tmp_path):
+    """Replay must not re-queue an entry already in-flight — that would
+    double-deliver the report and double-count spend."""
+    import queue as _queue
+    client = _client(tmp_path)
+    client._enqueue_entry("entry_1")
+    client._enqueue_entry("entry_1")
+    assert client._queue.get_nowait() == "entry_1"
+    with pytest.raises(_queue.Empty):
+        client._queue.get_nowait()
+    # Once processed to a terminal state the id leaves _inflight…
+    client._inflight.discard("entry_1")
+    client._enqueue_entry("entry_1")
+    assert client._queue.get_nowait() == "entry_1"
+
+
+def test_plaintext_http_nonlocal_base_url_warns(tmp_path, caplog):
+    """Bearer tokens over plaintext http to a non-local host must warn."""
+    import logging
+    with caplog.at_level(logging.WARNING):
+        CloudManagementClient(
+            project_id="p", report_token="t",
+            base_url="http://203.0.113.10:8080", spool_dir=str(tmp_path),
+        )
+    assert any("unencrypted" in r.message for r in caplog.records)
