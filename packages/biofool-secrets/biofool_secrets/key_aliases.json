@@ -1,0 +1,266 @@
+{
+  "aliases": {
+    "BRAVE_ANSWERS_API_KEY": [
+      "BRAVE_SEARCH_API_KEY",
+      "BRAVE_API_KEY"
+    ],
+    "BRAVE_API_KEY": [
+      "BRAVE_SEARCH_API_KEY",
+      "BRAVE_ANSWERS_API_KEY"
+    ],
+    "BRAVE_SEARCH_API_KEY": [
+      "BRAVE_ANSWERS_API_KEY",
+      "BRAVE_API_KEY"
+    ],
+    "CF_ACCOUNT_ID": [
+      "CLOUDFLARE_ACCOUNT_ID",
+      "R2_ACCOUNT_ID"
+    ],
+    "CLOUDFLARE_ACCOUNT_ID": [
+      "R2_ACCOUNT_ID",
+      "CF_ACCOUNT_ID"
+    ],
+    "JEV_API_KEY": [
+      "OPENROUTER_API_KEY"
+    ],
+    "OPENCAGE_API": [
+      "OPENCAGE_API_KEY",
+      "OPENCAGE_KEY"
+    ],
+    "OPENCAGE_API_KEY": [
+      "OPENCAGE_API",
+      "OPENCAGE_KEY"
+    ],
+    "OPENCAGE_KEY": [
+      "OPENCAGE_API",
+      "OPENCAGE_API_KEY"
+    ],
+    "OPENROUTER_API_KEY": [
+      "JEV_API_KEY"
+    ],
+    "R2_ACCESS_KEY_ID": [
+      "CLOUDFLARE_R2_ACCESS_KEY_ID",
+      "AWS_ACCESS_KEY_ID"
+    ],
+    "R2_ACCOUNT_ID": [
+      "CLOUDFLARE_ACCOUNT_ID",
+      "CF_ACCOUNT_ID"
+    ],
+    "R2_SECRET_ACCESS_KEY": [
+      "CLOUDFLARE_R2_SECRET_ACCESS_KEY",
+      "AWS_SECRET_ACCESS_KEY"
+    ]
+  },
+  "description": "Canonical KEY_ALIASES registry for biofool_secrets (issue CloudManagement#129). 'aliases' are same-credential alternate spellings safe in every repo. 'project_aliases' apply only when the consuming repo selects itself via BIOFOOL_SECRETS_PROJECT or resolve_secret(project=...).",
+  "notes": {
+    "CLOUDFLARE_EMAIL_API_TOKEN": "Deliberately NOT aliased to CLOUDFLARE_API_TOKEN: the generic token lacks the Email Sending:Edit permission, so alias fallback would silently pick a key that 403s.",
+    "GCP_PROJECT_ID": "WorldStudioFinder-scoped: interchangeable there, but globally a repo may point the two vars at different projects \u2014 kept out of the global section.",
+    "GOOGLE_API_KEY": "Semantically unsafe to alias globally. In AIRichardMoon/VigilentSupport it resolves to GSM id 'coaching-gemini-api-key'; in WorldStudioFinder it is interchangeable with MOVEMENT_ARTS_GOOGLE_API_KEY/HOBBY_LOBBY_GOOGLE_API_KEY; in story_graph it is a Gemini/AI-Studio key that must NOT satisfy Knowledge-Graph/Geocoding lookups (HTTP 400/403 verified 2026-09) \u2014 those resolve via MOVEMENT_ARTS_GOOGLE_API_KEY only.",
+    "coaching-*": "GSM secret ids inside project quantum-aikido-coaching, not env-var spellings \u2014 valid only for AIRichardMoon lineage (VigilentSupport carries a vendored copy)."
+  },
+  "project_aliases": {
+    "AIRichardMoon": {
+      "AIKIDO_API": [
+        "coaching-aikido-api"
+      ],
+      "GEMINI_API_KEY": [
+        "coaching-gemini-api-key"
+      ],
+      "GMAIL_OAUTH_REFRESH_TOKEN": [
+        "coaching-gmail-refresh-token"
+      ],
+      "MAIL_PROXY_SECRET": [
+        "PROXY_SECRET"
+      ],
+      "OCI_CONFIG_FILE": [
+        "coaching-oci-config-file"
+      ],
+      "OCI_PRIVATE_KEY": [
+        "coaching-oci-private-key"
+      ],
+      "OCI_PROFILE": [
+        "coaching-oci-profile"
+      ],
+      "OCI_REGION": [
+        "coaching-oci-region"
+      ],
+      "ORACLE_DB_PASSWORD": [
+        "coaching-oracle-db-password"
+      ],
+      "ORACLE_DB_TNS_NAME": [
+        "coaching-oracle-db-tns-name"
+      ],
+      "ORACLE_DB_USER": [
+        "coaching-oracle-db-user"
+      ],
+      "ORACLE_NOTIFICATION_TOPIC_ID": [
+        "coaching-oracle-notification-topic-id"
+      ],
+      "ORACLE_WALLET_PASSWORD": [
+        "coaching-oracle-wallet-password"
+      ],
+      "PROTON_API": [
+        "coaching-proton-api"
+      ],
+      "REPLAY_TOKEN": [
+        "coaching-replay-token"
+      ],
+      "SMTP_FROM": [
+        "coaching-smtp-from"
+      ],
+      "SMTP_PASSWORD": [
+        "GMAIL_APP_PASSWORD",
+        "coaching-smtp-password"
+      ],
+      "SMTP_USERNAME": [
+        "coaching-smtp-username"
+      ],
+      "TWILIO_ACCOUNT_SID": [
+        "coaching-twilio-account-sid"
+      ],
+      "TWILIO_AUTH_TOKEN": [
+        "coaching-twilio-auth-token"
+      ],
+      "TWILIO_FROM_NUMBER": [
+        "coaching-twilio-from-number"
+      ]
+    },
+    "VigilentSupport": {
+      "AIKIDO_API": [
+        "coaching-aikido-api"
+      ],
+      "GEMINI_API_KEY": [
+        "coaching-gemini-api-key"
+      ],
+      "MAIL_PROXY_SECRET": [
+        "PROXY_SECRET"
+      ],
+      "OCI_CONFIG_FILE": [
+        "coaching-oci-config-file"
+      ],
+      "OCI_PRIVATE_KEY": [
+        "coaching-oci-private-key"
+      ],
+      "OCI_PROFILE": [
+        "coaching-oci-profile"
+      ],
+      "OCI_REGION": [
+        "coaching-oci-region"
+      ],
+      "ORACLE_DB_PASSWORD": [
+        "coaching-oracle-db-password"
+      ],
+      "ORACLE_DB_TNS_NAME": [
+        "coaching-oracle-db-tns-name"
+      ],
+      "ORACLE_DB_USER": [
+        "coaching-oracle-db-user"
+      ],
+      "ORACLE_NOTIFICATION_TOPIC_ID": [
+        "coaching-oracle-notification-topic-id"
+      ],
+      "ORACLE_WALLET_PASSWORD": [
+        "coaching-oracle-wallet-password"
+      ],
+      "PROTON_API": [
+        "coaching-proton-api"
+      ],
+      "REPLAY_TOKEN": [
+        "coaching-replay-token"
+      ],
+      "SMTP_FROM": [
+        "coaching-smtp-from"
+      ],
+      "SMTP_PASSWORD": [
+        "GMAIL_APP_PASSWORD",
+        "coaching-smtp-password"
+      ],
+      "SMTP_USERNAME": [
+        "coaching-smtp-username"
+      ],
+      "TWILIO_ACCOUNT_SID": [
+        "coaching-twilio-account-sid"
+      ],
+      "TWILIO_AUTH_TOKEN": [
+        "coaching-twilio-auth-token"
+      ],
+      "TWILIO_FROM_NUMBER": [
+        "coaching-twilio-from-number"
+      ]
+    },
+    "WorldStudioFinder": {
+      "CLOUDMANAGEMENT_REPORT_TOKEN": [
+        "CLOUDMANAGEMENT_REPORT_TOKEN_WORLDSTUDIOFINDER"
+      ],
+      "CLOUDMANAGEMENT_URL": [
+        "CLOUDMANAGEMENT_URL_PRODUCTION"
+      ],
+      "GCP_PROJECT_ID": [
+        "GOOGLE_CLOUD_PROJECT"
+      ],
+      "GCP_PROJECT_ID_QUANTUM_AIKIDO": [
+        "GOOGLE_CLOUD_PROJECT"
+      ],
+      "GCS_BUCKET_NAME": [
+        "GCS_BUCKET_URL"
+      ],
+      "GOOGLE_API_KEY": [
+        "MOVEMENT_ARTS_GOOGLE_API_KEY",
+        "HOBBY_LOBBY_GOOGLE_API_KEY"
+      ],
+      "GOOGLE_CLOUD_PROJECT": [
+        "GCP_PROJECT_ID"
+      ],
+      "GOOGLE_CREDENTIALS_PATH": [
+        "MOVEMENT_ARTS_CREDENTIALS_PATH",
+        "HOBBY_LOBBY_CREDENTIALS_PATH"
+      ],
+      "GOOGLE_SHEET_ID": [
+        "MOVEMENT_ARTS_SHEET_ID",
+        "HOBBY_LOBBY_SHEET_ID",
+        "MAIN_SHEET_ID"
+      ],
+      "MAIN_SHEET_ID": [
+        "MOVEMENT_ARTS_SHEET_ID",
+        "GOOGLE_SHEET_ID"
+      ],
+      "MOVEMENT_ARTS_CREDENTIALS_PATH": [
+        "GOOGLE_CREDENTIALS_PATH"
+      ],
+      "MOVEMENT_ARTS_GOOGLE_API_KEY": [
+        "GOOGLE_API_KEY"
+      ],
+      "MOVEMENT_ARTS_SHEET_ID": [
+        "GOOGLE_SHEET_ID",
+        "MAIN_SHEET_ID"
+      ]
+    },
+    "story_graph": {
+      "CLOUDMANAGEMENT_REPORT_TOKEN": [
+        "CLOUDMANAGEMENT_REPORT_TOKEN_STORY_GRAPH"
+      ],
+      "CLOUDMANAGEMENT_REPORT_TOKEN_STORY_GRAPH": [
+        "CLOUDMANAGEMENT_REPORT_TOKEN"
+      ],
+      "GEMINI_API_KEY": [
+        "GOOGLE_API_KEY",
+        "MOVEMENT_ARTS_GOOGLE_API_KEY"
+      ],
+      "GOOGLE_API_KEY": [
+        "GEMINI_API_KEY",
+        "MOVEMENT_ARTS_GOOGLE_API_KEY"
+      ],
+      "GOOGLE_GEOCODE_API_KEY": [
+        "MOVEMENT_ARTS_GOOGLE_API_KEY"
+      ],
+      "GOOGLE_KNOWLEDGE_GRAPH_API_KEY": [
+        "MOVEMENT_ARTS_GOOGLE_API_KEY"
+      ],
+      "MOVEMENT_ARTS_GOOGLE_API_KEY": [
+        "GOOGLE_API_KEY",
+        "GEMINI_API_KEY"
+      ]
+    }
+  },
+  "version": 1
+}

@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "biofool-secrets"
+version = "0.1.0"
+description = "Canonical secret resolution for biofool repos: env -> GCP Secret Manager -> Proton Pass, one KEY_ALIASES registry"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [{name = "Quantum Aikido"}]
+keywords = ["secrets", "gcp", "secret-manager", "biofool"]
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Homepage = "https://github.com/biofool/CloudManagement"
+
+[project.optional-dependencies]
+# Optional accelerators — the package works stdlib-only (gcloud CLI path).
+sdk = ["google-cloud-secretmanager>=2.16"]
+yaml = ["pyyaml>=6.0"]
+dev = ["pytest>=8.0", "pyyaml>=6.0"]
+
+[project.scripts]
+biofool-secrets = "biofool_secrets.cli:main"
+
+[tool.setuptools]
+packages = ["biofool_secrets"]
+
+[tool.setuptools.package-data]
+biofool_secrets = ["key_aliases.json"]
