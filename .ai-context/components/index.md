@@ -13,4 +13,3 @@
 | [Admin routes](admin-routes.md) | `admin_routes.py` | Poll/reconcile/info endpoints |
 | [Client package](client-package.md) | `cloud_management_client/` | Sub-project reporting client |
 | [Path resolver](path-resolver.md) | `paths.py` | Project-root path resolution |
-| [GitLab mirror](gitlab-mirror.md) | `mirror-to-gitlab.sh`, `push-to-gitlab.sh`, `gitlab-migrate.sh` | GitHub→GitLab mirroring |

@@ -25,8 +25,6 @@ per-project (quota-based), and per-billing-account (billing shutoff).
 - **Client package:** `cloud_management_client/` — stdlib-only pip package
   (v0.12.0) for sub-projects to declare intent / report actuals.
 - **IaC:** Terraform in `terraform/` (GCP provider ~> 5.0).
-- **GitLab mirror:** `mirror-to-gitlab.sh`, `push-to-gitlab.sh`,
-  `gitlab-migrate.sh` — push to `biofool-vig/MultiCloud-MultiPass-gitlab`.
 
 ## Navigation
 
