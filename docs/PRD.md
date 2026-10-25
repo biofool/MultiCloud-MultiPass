@@ -287,4 +287,4 @@ See `README.md` for the architecture diagram. Key components:
 - A tracked duplicate adds a **lowercase** `_dup` suffix: `<PREFIX>_<NAME>_dup`. This is the form in Secret Manager, `biofool-secrets` and every caller.
 - A retired secret is renamed `<NAME>_deprecated_YYYYMMDD`. No runtime code may read it.
 - Cloudflare token order: `<P>_CFT`, `<P>_CFT_dup`, `CLOUDFLARE_API_TOKEN`, `CFT` (CloudManagement#154).
-- Verified 2026-10-25: `MCP_CFT_dup` is active and passes the account and zone reads MultiPass makes. No primary `MCP_CFT` exists yet. Full results and open gaps: CloudManagement `docs/PRD.md` §6.6.
+- Verified 2026-10-25: `MCP_CFT_dup` is active and passes the account and zone reads MultiPass makes. Individual `MCP_CFT` created 2026-10-25 (account-owned, least-privilege, verified); the `_dup` is the pre-existing shared token. See CloudManagement #158. Full results and open gaps: CloudManagement `docs/PRD.md` §6.6.
