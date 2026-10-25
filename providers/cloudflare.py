@@ -62,7 +62,16 @@ class CloudflareProvider(CostProvider):
         Cloudflare's free tier doesn't bill for bandwidth, so this is
         mostly informational.  Returns empty if no API token configured.
         """
-        token = os.environ.get("CLOUDFLARE_API_TOKEN", "")
+        # Prefixed names win (biofool/CloudManagement#154): MCP_CFT canonical,
+        # MCP_CFT_dup tracked duplicate, CLOUDFLARE_API_TOKEN legacy.
+        token = next(
+            (
+                os.environ.get(name, "")
+                for name in ("MCP_CFT", "MCP_CFT_dup", "CLOUDFLARE_API_TOKEN")
+                if os.environ.get(name)
+            ),
+            "",
+        )
         if not token:
             return []
 
