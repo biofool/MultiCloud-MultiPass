@@ -280,3 +280,11 @@ See `README.md` for the architecture diagram. Key components:
   needs an admin endpoint + runbook.
 - **Dashboard inventory view** — the dashboard HTML needs a resource
   inventory tab showing all resources grouped by account/project.
+
+## Secret naming convention (portfolio-wide, 2026-10-25)
+
+- Project secrets use a prefix: `<PREFIX>_<NAME>` (`AIKI`, `QA`, `ARM`, `MCP`, `SEC`).
+- A tracked duplicate adds a **lowercase** `_dup` suffix: `<PREFIX>_<NAME>_dup`. This is the form in Secret Manager, `biofool-secrets` and every caller.
+- A retired secret is renamed `<NAME>_deprecated_YYYYMMDD`. No runtime code may read it.
+- Cloudflare token order: `<P>_CFT`, `<P>_CFT_dup`, `CLOUDFLARE_API_TOKEN`, `CFT` (CloudManagement#154).
+- Verified 2026-10-25: `MCP_CFT_dup` is active and passes the account and zone reads MultiPass makes. No primary `MCP_CFT` exists yet. Full results and open gaps: CloudManagement `docs/PRD.md` §6.6.
