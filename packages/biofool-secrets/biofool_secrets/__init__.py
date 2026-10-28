@@ -35,6 +35,8 @@ from biofool_secrets.resolver import (
     resolve_secret,
 )
 
+from biofool_secrets.token import resolve_token, token_candidates
+
 __version__ = "0.1.0"
 
 __all__ = [
@@ -52,5 +54,7 @@ __all__ = [
     "reset_caches",
     "resolution_report",
     "resolve_secret",
+    "resolve_token",
+    "token_candidates",
     "__version__",
 ]

@@ -11,6 +11,9 @@ Subcommands:
                  ``KEY=value`` lines — to stdout, or ``--output FILE``.
                  ``--dry-run`` prints ``KEY=<set:N>``/``KEY=<missing>``.
   check NAME     Names-only resolution report (candidates, source, no value).
+  token PREFIX   Resolve <PREFIX>_CFT -> <PREFIX>_CFT_dup -> CLOUDFLARE_API_TOKEN
+                 -> CFT. Prints the VALUE; the winning NAME goes to stderr.
+                 ``--name-only`` prints just the name.
 """
 
 from __future__ import annotations
@@ -19,7 +22,7 @@ import argparse
 import json
 import sys
 
-from biofool_secrets import resolver
+from biofool_secrets import resolver, token
 
 
 def _cmd_resolve(args: argparse.Namespace) -> int:
@@ -90,6 +93,23 @@ def _cmd_check(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_token(args: argparse.Namespace) -> int:
+    try:
+        found = token.resolve_token(
+            args.prefix, env_file=args.env_file, secret_project=args.secret_project,
+        )
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    if not found:
+        print(f"{args.prefix}: no token resolved", file=sys.stderr)
+        return 1
+    name, value = found
+    print(f"resolved_from={name}", file=sys.stderr)
+    print(name if args.name_only else value)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="biofool-secrets",
@@ -118,6 +138,12 @@ def build_parser() -> argparse.ArgumentParser:
     c = sub.add_parser("check", help="names-only resolution report")
     c.add_argument("name")
     c.set_defaults(func=_cmd_check)
+
+    t = sub.add_parser("token", help="resolve a prefixed Cloudflare token")
+    t.add_argument("prefix", help="project prefix, e.g. AIKI")
+    t.add_argument("--env-file", help="also read NAME=value lines from this file")
+    t.add_argument("--name-only", action="store_true", help="print the winning name, not the value")
+    t.set_defaults(func=_cmd_token)
     return p
 
 
