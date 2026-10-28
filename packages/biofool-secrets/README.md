@@ -60,6 +60,28 @@ python -m biofool_secrets check GOOGLE_API_KEY
 | `BIOFOOL_SECRETS_DEPRECATED_FILE` | Deprecated-alias YAML (else `config/deprecated_secrets.yaml` under cwd). |
 | `PROTON_PASS_ENABLED` / `PROTON_PASS_AGENT_TOKEN` / `PROTON_PASS_CLI_PATH` / `PROTON_PASS_VAULT` / `PROTON_PASS_CACHE_TTL` | Proton Pass fallback (opt-in). |
 
+## Prefixed Cloudflare tokens
+
+Per-project tokens follow CloudManagement#154: `<PREFIX>_CFT`, then the tracked
+duplicate `<PREFIX>_CFT_dup` (lowercase `_dup`), then `CLOUDFLARE_API_TOKEN`, then `CFT`.
+
+```python
+from biofool_secrets import resolve_token
+
+name, value = resolve_token("AIKI", env_file="../.env.secrets")  # or None
+os.environ["CLOUDFLARE_API_TOKEN"] = value  # wrangler reads only this name
+```
+
+Sources are tried in order: process env, `env_file` (optional), Secret Manager
+(skipped under `SECRETS_BACKEND=env`). Inside each source the first name wins.
+Values lose whitespace, CR and one pair of quotes; an empty value counts as unset.
+Env files accept `export NAME=value`, skip comments, and a later duplicate never
+replaces an earlier non-empty value. Log the returned NAME, never the value.
+
+```bash
+TOKEN=$(biofool-secrets token AIKI --env-file ../.env.secrets)   # winning name on stderr
+```
+
 ## KEY_ALIASES registry
 
 `biofool_secrets/key_aliases.json` — merged from the four diverged copies

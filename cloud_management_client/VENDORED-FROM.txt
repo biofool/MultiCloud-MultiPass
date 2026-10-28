@@ -1,8 +1,9 @@
 Vendored snapshot of the canonical cloud_management_client package.
 
 Source: biofool/CloudManagement, cloud_management_client/__init__.py
-Synced:  2026-10-22, at CloudManagement staging (client v0.15.2, single-file
-         layout — supersedes this repo's earlier v0.12.0 modular copy)
+Synced:  2026-10-28, at CloudManagement fix/128-client-seq-seed (client
+         v0.17.1, single-file layout — restores v0.12 client_seq spool
+         seeding + disabled-client no-spool semantics)
 
 DO NOT EDIT — sync from the canonical repo. Replaced by a real version pin
 when consumer CI/image builds can authenticate to the private repo (#128).

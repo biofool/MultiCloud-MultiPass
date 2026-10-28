@@ -148,7 +148,10 @@ __all__ = [
     "INTENT_HEADROOM",
 ]
 
-__version__ = "0.15.2"
+# Canonical source: biofool/CloudManagement @ cloud_management_client/.
+# Vendored copies: keep this stamp + __version__ intact so drift between
+# copies can be checked mechanically (issue #128).
+__version__ = "0.17.1"
 
 # Match hub INTENT_VARIANCE_THRESHOLD (issue #60). Declare
 # list_unit * calls * INTENT_HEADROOM so kill still fires at 1.2× declared.
@@ -217,7 +220,10 @@ def _fail(msg: str, exc: Exception | None = None, strict: bool = False) -> None:
 def _is_http_url(url: str) -> bool:
     """True if the URL uses http/https — urllib.request also accepts
     file:// and other schemes, which this client must never fetch."""
-    return urllib.parse.urlsplit(url).scheme in ("http", "https")
+    try:
+        return urllib.parse.urlsplit(url).scheme in ("http", "https")
+    except ValueError:
+        return False
 
 
 def _env_int(name: str, default: int) -> int:
@@ -814,6 +820,11 @@ class IntentResponse:
     intent_id: str = ""
     approved: bool = False
     deferred: bool = False
+    # True when the hub could not be reached at all (transport error, non-2xx,
+    # unparseable body) as opposed to the hub answering with approved=False.
+    # Callers must distinguish the two: an unreachable hub is an infrastructure
+    # failure and must not be treated as a budget denial.
+    unreachable: bool = False
     budget_remaining_usd: float = 0.0
     budget_short_usd: float = 0.0
     suggested_retry_at: str = ""
@@ -888,10 +899,18 @@ class CloudManagementClient:
         use_identity: bool | None = None,
         gate_token: str = "",
         cost_history_file: str | None = None,
+        url_secret_name: str = "",
+        url_secret_project: str = "",
     ) -> None:
         self.project_id = project_id or os.environ.get("CLOUDMANAGEMENT_PROJECT_ID", "")
         self.report_token = report_token or os.environ.get("CLOUDMANAGEMENT_REPORT_TOKEN", "")
         self.base_url = (base_url or os.environ.get("CLOUDMANAGEMENT_URL", "http://127.0.0.1:8080")).rstrip("/")
+        # Dynamic URL discovery (issue #116): when set, a connection failure
+        # triggers one refresh of base_url from GCP Secret Manager
+        # (versions/latest:access) and a single retry. Only works on GCP —
+        # the access token comes from the metadata server.
+        self.url_secret_name = url_secret_name or os.environ.get("CLOUDMANAGEMENT_URL_SECRET", "")
+        self.url_secret_project = url_secret_project or os.environ.get("CLOUDMANAGEMENT_URL_SECRET_PROJECT", "")
         self.gate_token = gate_token or os.environ.get("CLOUDMANAGEMENT_GATE_TOKEN", "")
         self.source_repo = source_repo
         # Human-readable name of the calling application (e.g. "OSenseiArchiver"),
@@ -899,7 +918,7 @@ class CloudManagementClient:
         # Recorded on every intent/actual report for attribution in the dashboard.
         self.application = application or os.environ.get("CLOUDMANAGEMENT_APPLICATION", "")
         self.timeout = timeout if timeout is not None else _env_int("CLOUDMANAGEMENT_TIMEOUT", 5)
-        self.intent_timeout = intent_timeout if intent_timeout is not None else _env_int("CLOUDMANAGEMENT_INTENT_TIMEOUT", 3)
+        self.intent_timeout = intent_timeout if intent_timeout is not None else _env_int("CLOUDMANAGEMENT_INTENT_TIMEOUT", 10)
         self.strict = strict if strict is not None else os.environ.get("CLOUDMANAGEMENT_STRICT", "false").lower() == "true"
 
         # Durable on-disk spool for report_actual (issue #12). Set
@@ -934,6 +953,7 @@ class CloudManagementClient:
         # actual (scenario 6 / issue #12).
         self._client_seq: dict[str, int] = {}
         self._seq_lock = threading.Lock()
+        self._seed_client_seq()
 
         # Background queue for async report_actual calls. Items are spool
         # entry IDs (or None as the stop sentinel).
@@ -971,7 +991,8 @@ class CloudManagementClient:
             self.base_url = ""
         # Warn when a bearer/gate token would travel over plaintext http to
         # a non-local host — a passive observer could replay it (fork fix
-        # 07126c5). Loopback/RFC1918 dev targets stay quiet.
+        # MultiCloud-MultiPass 07126c5, upstreamed). Loopback/RFC1918 IP
+        # literals stay quiet.
         try:
             _bu = urllib.parse.urlsplit(self.base_url or "")
             _host = _bu.hostname or ""
@@ -995,6 +1016,32 @@ class CloudManagementClient:
         # In identity mode, the token is fetched at request time from the
         # metadata server, so report_token is not required.
         return bool(self.project_id and self.base_url and (self.report_token or self.use_identity))
+
+    def _seed_client_seq(self) -> None:
+        """Seed per-intent client_seq high-water marks from leftover spool
+        entries so a restarted process does not restamp seq=1. The hub
+        treats the highest client_seq as authoritative — a restamped report
+        would look stale and be dropped (v0.12 semantics, restored; see
+        CloudManagement#139). Best-effort: an unreadable or corrupt entry
+        is skipped, never fatal — even in strict mode."""
+        try:
+            entry_ids = self._spool.list_entries()
+        except Exception as e:
+            log.warning("cloud_management: client_seq spool seed failed: %s", e)
+            return
+        for entry_id in entry_ids:
+            try:
+                entry = self._spool.read(entry_id)
+            except Exception as e:
+                log.warning("cloud_management: skipping unreadable spool entry %s during client_seq seed: %s", entry_id, e)
+                continue
+            if not entry:
+                continue
+            payload = entry.get("payload") or {}
+            intent_id = payload.get("intent_id")
+            seq = entry.get("client_seq") or payload.get("client_seq") or 0
+            if intent_id and isinstance(seq, int) and seq > self._client_seq.get(intent_id, 0):
+                self._client_seq[intent_id] = seq
 
     # ------------------------------------------------------------------
     # Background worker for async report_actual
@@ -1055,15 +1102,18 @@ class CloudManagementClient:
             self._post_sync(entry["path"], entry["payload"])
             return
 
-        entry = self._spool.read(entry_id)
+        try:
+            entry = self._spool.read(entry_id)
+        except Exception:
+            entry = None  # strict mode raises — treat as corrupt
         if entry is None:
-            # Poison pill: an unreadable/corrupt file that still exists on
-            # disk would be re-queued on every client startup and replayed
-            # forever — drop it (fork fix 07126c5).
+            # Entry was lost or is corrupt. If the file still exists it is
+            # a poison pill that can never be delivered — drop it so it is
+            # not re-listed at every replay (v0.12 semantics, restored).
             path = self._spool._entry_path(entry_id)
-            if path and os.path.exists(path):
-                self._spool.drop(entry_id, "unreadable or corrupt entry")
-            return  # nothing to deliver
+            if path is not None and os.path.exists(path):
+                self._spool.drop(entry_id, "unreadable/corrupt entry")
+            return
         attempts = entry.get("attempts", 0)
         while True:
             data = self._post_sync(entry["path"], entry["payload"])
@@ -1153,6 +1203,65 @@ class CloudManagementClient:
             log.warning("cloud_management: identity token fetch failed: %s", e)
             return None
 
+    def _metadata_get(self, path: str) -> str | None:
+        """GET a metadata-server path; returns the body or None."""
+        try:
+            req = urllib.request.Request(
+                f"http://metadata.google.internal/computeMetadata/v1/{path}",
+                headers={"Metadata-Flavor": "Google"},
+            )
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                return resp.read().decode("utf-8").strip()
+        except Exception as e:
+            log.warning("cloud_management: metadata server fetch failed (%s): %s", path, e)
+            return None
+
+    def _refresh_base_url(self) -> bool:
+        """Re-resolve base_url from GCP Secret Manager (issue #116).
+
+        Used when ``url_secret_name`` is configured: on a connection
+        failure the client reads ``projects/<url_secret_project or
+        metadata project>/secrets/<name>/versions/latest:access`` over the
+        GSM REST API (stdlib-only — access token from the metadata server)
+        and, if the stored URL differs, swaps base_url and drops the
+        cached ID token (its audience was the old URL). Returns True when
+        the URL changed, False otherwise. Never raises.
+        """
+        if not self.url_secret_name:
+            return False
+        token_json = self._metadata_get("instance/service-accounts/default/token")
+        if not token_json:
+            return False
+        try:
+            access_token = json.loads(token_json)["access_token"]
+        except (ValueError, KeyError) as e:
+            log.warning("cloud_management: metadata token parse failed: %s", e)
+            return False
+        project = self.url_secret_project or self._metadata_get("project/project-id")
+        if not project:
+            return False
+        try:
+            req = urllib.request.Request(
+                "https://secretmanager.googleapis.com/v1/projects/"
+                f"{project}/secrets/{self.url_secret_name}/versions/latest:access",
+                headers={"Authorization": f"Bearer {access_token}"},
+            )
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+            import base64
+            new_url = base64.b64decode(data["payload"]["data"]).decode("utf-8").strip().rstrip("/")
+        except Exception as e:
+            log.warning("cloud_management: url secret refresh failed: %s", e)
+            return False
+        if not _is_http_url(new_url) or new_url == self.base_url:
+            return False
+        log.info("cloud_management: base_url refreshed from secret %s -> %s", self.url_secret_name, new_url)
+        self.base_url = new_url
+        # Cached ID token was minted for the old audience — force refetch.
+        self._id_token = None
+        self._id_token_expiry = 0.0
+        return True
+
     def _auth_token(self) -> str:
         """Return the bearer token for the current request.
 
@@ -1183,7 +1292,7 @@ class CloudManagementClient:
             return {"X-Gate-Token": self.gate_token}
         return {}
 
-    def _post_sync(self, path: str, payload: dict[str, Any], timeout: int | None = None) -> dict[str, Any] | None:
+    def _post_sync(self, path: str, payload: dict[str, Any], timeout: int | None = None, _refreshed: bool = False) -> dict[str, Any] | None:
         """Synchronous HTTP POST. Returns parsed JSON or None on error."""
         if not self.enabled:
             return None
@@ -1217,13 +1326,17 @@ class CloudManagementClient:
             _fail(f"POST {path} failed (HTTP {e.code}): {err_body}", strict=self.strict)
             return None
         except urllib.error.URLError as e:
+            # Connection failure — if URL discovery is configured, refresh
+            # base_url from Secret Manager once and retry (issue #116).
+            if not _refreshed and self._refresh_base_url():
+                return self._post_sync(path, payload, timeout, _refreshed=True)
             _fail(f"POST {path} connection error", e, strict=self.strict)
             return None
         except Exception as e:
             _fail(f"POST {path} unexpected error", e, strict=self.strict)
             return None
 
-    def _get_sync(self, path: str, timeout: int | None = None) -> dict[str, Any] | None:
+    def _get_sync(self, path: str, timeout: int | None = None, _refreshed: bool = False) -> dict[str, Any] | None:
         """Synchronous HTTP GET. Returns parsed JSON or None on error."""
         if not self.enabled:
             return None
@@ -1254,6 +1367,8 @@ class CloudManagementClient:
             _fail(f"GET {path} failed (HTTP {e.code}): {err_body}", strict=self.strict)
             return None
         except urllib.error.URLError as e:
+            if not _refreshed and self._refresh_base_url():
+                return self._get_sync(path, timeout, _refreshed=True)
             _fail(f"GET {path} connection error", e, strict=self.strict)
             return None
         except Exception as e:
@@ -1317,10 +1432,24 @@ class CloudManagementClient:
 
         data = self._post_sync("/api/v1/intent", payload, timeout=self.intent_timeout)
         if data is None:
-            return IntentResponse()
+            # _post_sync already logged the cause. Flag the response as
+            # unreachable so callers can degrade instead of failing closed.
+            return IntentResponse(unreachable=True)
+        # A malformed response (missing "approved", empty body, gateway error
+        # envelope) must not be treated as an explicit denial — only a
+        # response that contains "approved": false is a real budget denial.
+        if "approved" not in data:
+            log.warning("cloud_management: intent response missing 'approved' field — treating as unreachable")
+            return IntentResponse(unreachable=True)
+        if not isinstance(data["approved"], bool):
+            # bool() would coerce a truthy string ("false") into approval —
+            # only a real JSON boolean counts.
+            log.warning("cloud_management: intent response has non-boolean 'approved' field — treating as unreachable")
+            return IntentResponse(unreachable=True)
+        approved = data["approved"]
         return IntentResponse(
             intent_id=data.get("intent_id", ""),
-            approved=data.get("approved", False),
+            approved=approved,
             deferred=data.get("deferred", False),
             budget_remaining_usd=float(data.get("budget_remaining_usd", 0)),
             budget_short_usd=float(data.get("budget_short_usd", 0)),
@@ -1338,7 +1467,7 @@ class CloudManagementClient:
         status changes. Returns the full intent dict, or None on error.
         No project-scoped auth — the intent_id is an unguessable token.
         """
-        return self._get_sync(f"/api/v1/intent/{intent_id}")
+        return self._get_sync(f"/api/v1/intent/{urllib.parse.quote(intent_id, safe='')}")
 
     def wait_for_reschedule(
         self,
@@ -1361,7 +1490,7 @@ class CloudManagementClient:
         import time as _time
         deadline = _time.monotonic() + timeout
         while _time.monotonic() < deadline:
-            data = self._get_sync(f"/api/v1/intent/{intent_id}")
+            data = self._get_sync(f"/api/v1/intent/{urllib.parse.quote(intent_id, safe='')}")
             if data is None:
                 return None
             status = data.get("status", "")
@@ -1584,7 +1713,7 @@ class CloudManagementClient:
                 )
                 # Cache per-model free-tier data from pricing dict (issue #73).
                 # The hub stores per-model free-tier state inside pricing,
-                # keyed by model id (e.g. "gemini-2.5-flash-lite").
+                # keyed by model id (e.g. "gemini-3.1-flash-lite").
                 pricing = info.get("pricing") or {}
                 for model_id, model_data in pricing.items():
                     if not isinstance(model_data, dict):
@@ -1599,6 +1728,15 @@ class CloudManagementClient:
                             rpd=int(model_data.get("free_tier_rpd", 0)),
                         )
         return data
+
+    def pull_expected_costs(self) -> dict[str, Any] | None:
+        """Deprecated alias for :meth:`get_expected_costs`.
+
+        Kept for callers on vendored 0.12.x copies where this was the
+        method name (issue #128). New code should call
+        ``get_expected_costs``.
+        """
+        return self.get_expected_costs()
 
     def check_free_tier_remaining(self, provider: str, api: str) -> dict[str, Any] | None:
         """Return cached free-tier quota for a (provider, api) pair.
@@ -1808,7 +1946,9 @@ class CloudManagementClient:
         if sync or not self.enabled:
             # Persist to spool before the HTTP attempt so a crash mid-send
             # doesn't lose the report. On success, remove from spool.
-            entry_id = self._spool.write("/api/v1/actual", payload, client_seq=seq)
+            # Disabled clients can never deliver — don't leak entries into
+            # the spool (v0.12 semantics, restored).
+            entry_id = None if not self.enabled else self._spool.write("/api/v1/actual", payload, client_seq=seq)
             data = self._post_sync("/api/v1/actual", payload)
             if data is not None and entry_id is not None:
                 self._spool.remove(entry_id)
@@ -1860,9 +2000,10 @@ class CloudManagementClient:
         """
         if not self.enabled:
             return []
-        params = f"project_id={self.project_id}"
+        query = {"project_id": self.project_id}
         if since:
-            params += f"&since={since}"
+            query["since"] = since
+        params = urllib.parse.urlencode(query)
         data = self._get_sync(f"/api/v1/kill-orders?{params}")
         if data is None:
             return []
