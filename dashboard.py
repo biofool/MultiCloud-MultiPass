@@ -13,6 +13,12 @@ Environment variables:
   HUB_PROJECT_ID     Project hosting the shared billing export dataset, used to
                       build per-account table paths for the team view
                       (default: derived from BQ_BILLING_TABLE's project prefix)
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

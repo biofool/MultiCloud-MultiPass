@@ -8,6 +8,10 @@ CloudManagement evolved from the GCP Cost Kill Switch (formerly CloudBilling) an
 2. **Cost kill switch** — centralized cost-control for a small team of independent cloud developers. One hub project watches every teammate's GCP project and can automatically stop runaway spend — from a fast quota-based trip in minutes, down to a nuclear billing shutoff.
 3. **Intent/actual reporting hub** — sub-projects declare expected API usage before making calls and report actuals after. CloudManagement validates actual vs intent, detects overruns, and can kill the specific job that is accumulating cost. This layer is **provider-agnostic** — it works for GCP, OpenStack, Cloudflare, and any third-party API without needing each cloud's billing API in the hot path.
 
+## Project status
+
+The canonical implementation of the hub is maintained upstream in `biofool/CloudManagement`. This repo stays standalone-runnable for self-hosting: its server-side modules are a frozen maintenance-mode snapshot (security fixes and upstream backports only), while `cloud_management_client/` and `secret_loader.py` track the canonical versions. See `docs/convergence.md` for the divergence map and maintenance policy.
+
 ## How to use this project
 
 ### Setup
