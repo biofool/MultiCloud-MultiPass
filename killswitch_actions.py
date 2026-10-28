@@ -11,6 +11,12 @@ a stale copy at import time). ``run_v2``/``scheduler_v1``/``compute_v1``/
 ``billing_v1`` are the same cached module objects main.py imports (or
 tests replace in ``sys.modules``), so patching either import path
 patches the same target.
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

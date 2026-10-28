@@ -7,6 +7,12 @@ access is qualified through ``_intent_mod`` rather than a bare
 ``import intent``. ``_fs_client`` (the lazily-created Firestore client
 cache) stays defined in intent.py itself rather than moving here, so
 ``importlib.reload(intent)`` keeps resetting it exactly as before.
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

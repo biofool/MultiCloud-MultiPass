@@ -17,6 +17,12 @@ Environment variables:
   ACCOUNTS_FILE   Path to the YAML accounts file when USE_FIRESTORE=false
                   (default: "config/accounts.yaml")
   FIRESTORE_PROJECT  Project hosting the Firestore database (default: PROJECT_ID env var)
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

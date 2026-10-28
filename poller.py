@@ -23,6 +23,12 @@ Environment variables:
   BASELINE_MULTIPLIER   Trip threshold as a multiple of the 1h baseline (default: 5)
   POLL_WINDOW_MINUTES    Width of the "recent" window (default: 5)
   BASELINE_WINDOW_MINUTES  Width of the trailing baseline window (default: 60)
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

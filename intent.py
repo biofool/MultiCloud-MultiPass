@@ -32,6 +32,12 @@ Environment variables:
                              take precedence via the registry's report_token_secret)
   INTENT_VARIANCE_THRESHOLD  Actual/expected ratio that triggers a kill (default: 1.2)
   RATE_CAP_BUFFER            Multiplier on declared rate_limit_rpm before tripping (default: 1.1)
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

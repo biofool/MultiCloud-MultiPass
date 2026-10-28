@@ -96,6 +96,14 @@ and report actuals after.
 - `terraform/` — GCP infrastructure provisioning
 - `docs/PRD.md` — CloudManagement PRD (scope, inventory schema, job-placement policy)
 
+**Frozen-snapshot rule:** the server-side modules (`main.py`,
+`poller.py`, `registry.py`, `intent*.py`, `admin_routes.py`, `alerts.py`,
+`dedup.py`, `killswitch_actions.py`, `dashboard.py`, `inventory.py`) are
+a maintenance-mode snapshot — the canonical implementation is maintained
+upstream in `biofool/CloudManagement`. Do NOT extend or refactor them in
+this repo; security fixes and upstream backports only. See
+`docs/convergence.md`.
+
 ### Commands
 
 ```bash
