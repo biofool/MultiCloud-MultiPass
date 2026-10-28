@@ -48,7 +48,6 @@ def test_version_is_compared_numerically():
     assert parsed >= (0, 2, 0)
 
 
-@pytest.mark.skip(reason="v0.15.2 canonical client restructured this mechanic — the seam no longer exists; canonical internals are covered by CloudManagement tests. Follow-up harness parity tracked in CloudManagement#139.")
 def test_client_seq_continues_above_spool_after_restart(tmp_path):
     """A restarted process must not reuse client_seq values that are still
     sitting in the spool — the hub treats the highest sequence as the
@@ -86,7 +85,6 @@ def test_client_seq_is_per_intent(tmp_path):
     assert by_intent == {"A": 1, "B": 1}
 
 
-@pytest.mark.skip(reason="v0.15.2 canonical client restructured this mechanic — the seam no longer exists; canonical internals are covered by CloudManagement tests. Follow-up harness parity tracked in CloudManagement#139.")
 def test_disabled_client_does_not_spool(tmp_path):
     """A client with no credentials can never deliver, so it must not fill
     the spool with entries that will only ever be evicted by the cap."""
@@ -97,7 +95,6 @@ def test_disabled_client_does_not_spool(tmp_path):
     assert glob.glob(os.path.join(str(tmp_path), "*.json")) == []
 
 
-@pytest.mark.skip(reason="v0.15.2 canonical client restructured this mechanic — the seam no longer exists; canonical internals are covered by CloudManagement tests. Follow-up harness parity tracked in CloudManagement#139.")
 def test_corrupt_spool_entry_does_not_break_construction(tmp_path):
     """Seeding client_seq happens in __init__, so an unreadable leftover file
     must not stop the client from being built.
