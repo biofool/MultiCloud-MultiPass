@@ -21,6 +21,12 @@ list_project_intents/kill), so both now call ``_validate_token``
 exactly like ``declare_intent``/``report_actual``/``manual_kill``.
 ``list_all_intents`` is intentionally left as-is — see its own
 docstring for why.
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

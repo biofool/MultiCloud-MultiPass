@@ -6,6 +6,12 @@ no behavior change. Logging goes through ``main.log`` (imported lazily
 via ``import main``, not ``from main import log``) so this module never
 caches a stale reference — consistent with how the rest of the split
 reaches back into main's shared, sometimes test-mutated, state.
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

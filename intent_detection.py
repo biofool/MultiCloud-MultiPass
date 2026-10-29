@@ -5,6 +5,12 @@ move, no behavior change. ``check_intent_overrun``'s parameter is named
 ``intent`` (an ``Intent`` instance), which would shadow a plain
 ``import intent`` — hence the ``_intent_mod`` alias for the one
 reload-sensitive constant it reads (``INTENT_VARIANCE_THRESHOLD``).
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

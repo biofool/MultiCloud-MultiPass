@@ -4,6 +4,12 @@ Split out of the original monolithic ``intent.py`` — pure structural
 move, no behavior change. ``GLOBAL_REPORT_TOKEN`` is env-derived and
 reload-sensitive (see intent_storage.py's docstring), hence the
 ``_intent_mod`` qualified access.
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

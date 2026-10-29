@@ -7,6 +7,12 @@ the your-org portfolio. Exposed via GET /api/v1/inventory.
 This is the "one place that understands all cloud resources and accounts."
 Other repos' PRDs reference this inventory for where to store data and
 where to run jobs (see docs/PRD.md, section 6).
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

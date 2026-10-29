@@ -21,6 +21,12 @@ Environment variables:
 See registry.py for the multi-account registry (Firestore or local YAML) that
 backs the allowlist and per-account settings, and poller.py for the real-time
 quota-spike detector that also drives execute_killswitch().
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations

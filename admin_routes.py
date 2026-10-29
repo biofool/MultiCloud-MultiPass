@@ -21,6 +21,12 @@ would just duplicate what IAM already enforces) and risks breaking
 Cloud Scheduler, which doesn't send one. Left as-is; if per-caller
 identity ever needs checking beyond Cloud Run IAM, verify the
 OIDC token's `email` claim in-app rather than adding a shared secret.
+
+Maintenance-mode snapshot (upstream convergence): the canonical
+implementation of this module is maintained upstream in
+``biofool/CloudManagement``. This copy is a frozen snapshot kept so
+this repo stays standalone-runnable — it receives security fixes and
+upstream backports only. See docs/convergence.md.
 """
 
 from __future__ import annotations
