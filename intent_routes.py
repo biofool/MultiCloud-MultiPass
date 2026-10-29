@@ -44,7 +44,7 @@ from intent_storage import (
     save_intent,
     sum_actuals_for_intent,
 )
-from intent_detection import check_intent_overrun, check_project_budget
+from intent_detection import check_intent_overrun, check_project_budget, project_month_spend
 from intent_kill import kill_intent
 from intent_auth import _validate_token
 
@@ -53,6 +53,35 @@ from intent_auth import _validate_token
 # ---------------------------------------------------------------------------
 
 bp = flask.Blueprint("intent", __name__)
+
+
+def _int_field(data: dict, key: str, default=0):
+    """Parse an int field or 400 — bare int() on user input 500s."""
+    try:
+        return int(data.get(key, default))
+    except (TypeError, ValueError):
+        flask.abort(400, f"{key} must be an integer")
+
+
+def _float_field(data: dict, key: str, default=0.0):
+    try:
+        return float(data.get(key, default))
+    except (TypeError, ValueError):
+        flask.abort(400, f"{key} must be a number")
+
+
+def _public_intent_dict(intent: Intent) -> dict:
+    """to_dict() with the kill descriptor's credentials stripped.
+
+    ``kill.url``/``kill.headers`` carry callback auth material declared by
+    the project — endpoints readable without the project's token
+    (unguessable-id GET, dashboard list) must not serve them. ``type`` is
+    enough for dashboards.
+    """
+    d = intent.to_dict()
+    kill = d.get("kill") or {}
+    d["kill"] = {"type": kill.get("type", "")} if kill else {}
+    return d
 
 
 @bp.route("/api/v1/intent", methods=["POST"])
@@ -80,10 +109,10 @@ def declare_intent():
         job_name=data.get("job_name", ""),
         provider=data.get("provider", ""),
         api=data.get("api", ""),
-        expected_calls=int(data.get("expected_calls", 0)),
-        expected_cost_usd=float(data.get("expected_cost_usd", 0)),
+        expected_calls=_int_field(data, "expected_calls"),
+        expected_cost_usd=_float_field(data, "expected_cost_usd"),
         expected_tokens=data.get("expected_tokens"),
-        rate_limit_rpm=int(data.get("rate_limit_rpm", 0)),
+        rate_limit_rpm=_int_field(data, "rate_limit_rpm"),
         window_start=data.get("window_start", ""),
         window_end=data.get("window_end", ""),
         kill=data.get("kill", {}),
@@ -111,10 +140,11 @@ def declare_intent():
     save_intent(intent)
     log.info(json.dumps({"event": "intent_declared", "intent_id": intent_id, "project": project_id, "provider": intent.provider}))
 
-    # Compute budget remaining
+    # Compute budget remaining — same month-scoped latest-per-intent
+    # accounting as check_project_budget (issue #5: a naive sum over every
+    # report double-counts cumulative incremental reports).
     acct = registry.get_account(project_id)
-    actuals = list_actuals(project_id=project_id)
-    spent = sum(a.actual_cost_usd for a in actuals)
+    spent = project_month_spend(project_id)
     budget_remaining = (acct.budget_amount_usd - spent) if acct else 0
 
     return flask.jsonify({
@@ -142,7 +172,11 @@ def report_actual():
         return flask.jsonify({"error": "unauthorized"}), 401
 
     intent = get_intent(intent_id)
-    if intent is None:
+    if intent is None or intent.project_id != project_id:
+        # Cross-tenant check: the token is scoped to the body's project_id —
+        # without this, project A's token could report against (and trigger
+        # kill_intent on) project B's job. 404, not 403, so probing an
+        # unguessable id leaks nothing.
         return flask.jsonify({"error": "intent not found", "intent_id": intent_id}), 404
 
     # Determine sequence number for incremental reports
@@ -156,14 +190,14 @@ def report_actual():
         job_id=data.get("job_id", intent.job_id),
         provider=data.get("provider", intent.provider),
         api=data.get("api", intent.api),
-        actual_calls=int(data.get("actual_calls", 0)),
-        actual_cost_usd=float(data.get("actual_cost_usd", 0)),
+        actual_calls=_int_field(data, "actual_calls"),
+        actual_cost_usd=_float_field(data, "actual_cost_usd"),
         actual_tokens=data.get("actual_tokens"),
         status=data.get("status", "completed"),
         started_at=data.get("started_at", ""),
         ended_at=data.get("ended_at", ""),
         sequence=seq,
-        client_seq=int(data.get("client_seq", 0)),
+        client_seq=_int_field(data, "client_seq"),
         created_at=_now_iso(),
     )
     save_actual(actual)
@@ -261,7 +295,7 @@ def list_all_intents():
     status = flask.request.args.get("status")
     intents = list_intents(project_id=project_id, status=status)
     return flask.jsonify({
-        "intents": [i.to_dict() for i in intents],
+        "intents": [_public_intent_dict(i) for i in intents],
         "count": len(intents),
     }), 200
 
@@ -344,15 +378,7 @@ def get_project_budget(project_id: str):
             "over_budget": False,
         }), 200
 
-    actuals = list_actuals(project_id=project_id)
-    # Group by intent_id and take the latest (highest sequence) per intent
-    # — each intent's latest report is a cumulative total.
-    by_intent: dict[str, Actual] = {}
-    for a in actuals:
-        existing = by_intent.get(a.intent_id)
-        if existing is None or a.sequence > existing.sequence:
-            by_intent[a.intent_id] = a
-    spent = sum(a.actual_cost_usd for a in by_intent.values())
+    spent = project_month_spend(project_id)
     remaining = acct.budget_amount_usd - spent
     over = spent > acct.budget_amount_usd
 
@@ -379,7 +405,7 @@ def check_project_budget_admission(project_id: str):
         return flask.jsonify({"error": "unauthorized"}), 401
 
     data = flask.request.get_json(silent=True) or {}
-    expected_cost = float(data.get("expected_cost_usd", 0))
+    expected_cost = _float_field(data, "expected_cost_usd")
 
     acct = registry.get_account(project_id)
     if not acct or acct.budget_amount_usd <= 0:
@@ -396,13 +422,7 @@ def check_project_budget_admission(project_id: str):
             "suggested_retry_at": "",
         }), 200
 
-    actuals = list_actuals(project_id=project_id)
-    by_intent: dict[str, Actual] = {}
-    for a in actuals:
-        existing = by_intent.get(a.intent_id)
-        if existing is None or a.sequence > existing.sequence:
-            by_intent[a.intent_id] = a
-    spent = sum(a.actual_cost_usd for a in by_intent.values())
+    spent = project_month_spend(project_id)
     remaining = acct.budget_amount_usd - spent
     projected = remaining - expected_cost
 
@@ -443,7 +463,7 @@ def get_single_intent(intent_id: str):
     intent = get_intent(intent_id)
     if intent is None:
         return flask.jsonify({"error": "intent not found", "intent_id": intent_id}), 404
-    return flask.jsonify(intent.to_dict()), 200
+    return flask.jsonify(_public_intent_dict(intent)), 200
 
 
 @bp.route("/api/v1/kill-orders", methods=["GET"])

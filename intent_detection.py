@@ -22,6 +22,25 @@ from intent_storage import list_actuals, sum_actuals_for_intent
 # ---------------------------------------------------------------------------
 
 
+def project_month_spend(project_id: str) -> float:
+    """Month-to-date spend for a project in USD.
+
+    Single definition of project spend (issue #5): incremental reports
+    are *cumulative* per intent, so summing every Actual row double-counts.
+    Keep only the latest report per intent — ordered by (client_seq,
+    sequence), the same tie-break the hub uses everywhere — then sum.
+    """
+    current_month_prefix = datetime.now(timezone.utc).strftime("%Y-%m")
+    by_intent: dict[str, Actual] = {}
+    for a in list_actuals(project_id=project_id):
+        if not (a.created_at and a.created_at.startswith(current_month_prefix)):
+            continue
+        existing = by_intent.get(a.intent_id)
+        if existing is None or (a.client_seq, a.sequence) > (existing.client_seq, existing.sequence):
+            by_intent[a.intent_id] = a
+    return sum(a.actual_cost_usd for a in by_intent.values())
+
+
 def check_intent_overrun(intent: Intent) -> dict[str, Any] | None:
     """Check if an intent's actuals have exceeded the variance threshold.
 
@@ -66,33 +85,15 @@ def check_project_budget(project_id: str) -> dict[str, Any] | None:
     """Check if a project's rolling spend has exceeded its budget.
 
     Sums the latest actual report per intent for the current calendar
-    month.  Each intent's latest report is a cumulative total, so we
-    take the latest per intent (not the sum of all reports) and sum
-    across intents.
+    month via ``project_month_spend`` — each intent's latest report is a
+    cumulative total, so we take the latest per intent (not the sum of
+    all reports) and sum across intents.
     """
     acct = registry.get_account(project_id)
     if not acct or acct.budget_amount_usd <= 0:
         return None
 
-    # Get all actuals for the project, filter to current month
-    now = datetime.now(timezone.utc)
-    current_month_prefix = now.strftime("%Y-%m")
-    actuals = list_actuals(project_id=project_id)
-    month_actuals = [
-        a for a in actuals
-        if a.created_at and a.created_at.startswith(current_month_prefix)
-    ]
-
-    # Group by intent_id and take the latest per intent. client_seq is
-    # the client's monotonic per-intent counter (issue #1 part 2);
-    # fall back to sequence for older clients that don't stamp it.
-    by_intent: dict[str, Actual] = {}
-    for a in month_actuals:
-        existing = by_intent.get(a.intent_id)
-        if existing is None or (a.client_seq, a.sequence) > (existing.client_seq, existing.sequence):
-            by_intent[a.intent_id] = a
-
-    total_spend = sum(a.actual_cost_usd for a in by_intent.values())
+    total_spend = project_month_spend(project_id)
 
     if total_spend > acct.budget_amount_usd:
         return {

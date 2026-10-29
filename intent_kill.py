@@ -29,6 +29,25 @@ from intent_storage import save_kill_event, save_intent, _gen_id, _now_iso
 def kill_intent(intent: Intent, reason: str, rule: str = "") -> dict[str, Any]:
     """Kill the job associated with an intent via its kill descriptor."""
     from providers import registry as provider_registry
+    # Deferred — main imports intent_routes which imports this module, so a
+    # top-level import would be circular. Same pattern as provider_registry.
+    import main
+
+    # Protection gate — the poll path (main.py) refuses to touch SELF_PROJECT_ID
+    # or allowlisted projects; the intent path must apply the same rule, or an
+    # overrun on a hub/allowlisted project would still fire the kill provider.
+    if (main.SELF_PROJECT_ID and intent.project_id == main.SELF_PROJECT_ID) \
+            or main.is_project_protected(intent.project_id):
+        log.critical(json.dumps({
+            "event": "protected_kill_blocked",
+            "intent_id": intent.intent_id,
+            "project_id": intent.project_id,
+            "reason": reason,
+            "message": "Intent-path kill blocked on protected project — "
+                       "investigate its spend manually.",
+        }))
+        return {"killed": False, "reason": "project is protected",
+                "project_id": intent.project_id}
 
     kill_desc = intent.kill or {}
     if not kill_desc:
@@ -68,10 +87,15 @@ def kill_intent(intent: Intent, reason: str, rule: str = "") -> dict[str, Any]:
     }
     save_kill_event(kill_event)
 
-    # Update intent status
-    intent.status = "killed"
+    # Update intent status — only a confirmed kill is "killed"; a failed
+    # attempt must not leave the intent reporting "killed" while the job
+    # keeps running (dashboards believed it, and nothing would retry).
+    intent.status = "killed" if result.killed else "kill_failed"
     intent.updated_at = _now_iso()
     save_intent(intent)
 
-    log.warning(json.dumps({"event": "job_killed", **kill_event}))
+    log.warning(json.dumps({
+        "event": "job_killed" if result.killed else "kill_failed",
+        **kill_event,
+    }))
     return kill_event

@@ -26,4 +26,4 @@
 - `terraform/`
 - `tests/`
 
-**Key files:** `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `Dockerfile`, `LICENSE`, `README.md`, `TEST_PLAN.md`, `TechnicalMarketingReadMe.md`, `admin_routes.py`, `alerts.py`, `dashboard.py`, `dedup.py`, `deploy_quantum_aikido_terraform.sh`, `gitlab-migrate.sh`, `intent.py`
+**Key files:** `AGENTS.md`, `CLAUDE.md`, `CONTRIBUTING.md`, `Dockerfile`, `LICENSE`, `README.md`, `TEST_PLAN.md`, `TechnicalMarketingReadMe.md`, `admin_routes.py`, `alerts.py`, `dashboard.py`, `dedup.py`, `deploy_quantum_aikido_terraform.sh`, `intent.py`

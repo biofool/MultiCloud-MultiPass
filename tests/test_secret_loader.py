@@ -1,13 +1,8 @@
-"""Tests for secret_loader.py — the parallel GSM path.
-
-Verifies that:
-- When USE_SECRET_MANAGER is not "true", get() == os.environ.get() (no GSM call).
-- When USE_SECRET_MANAGER=true, get() resolves from GSM with caching.
-- Negative caching prevents repeated GSM calls for missing secrets.
-- Env var fallback works when GSM is unavailable.
-- Trailing newline is stripped but other whitespace is preserved.
+"""Tests for secret_loader — now a thin shim over the canonical
+``biofool-secrets`` package (P5 convergence). Tests patch the package seam
+(``biofool_secrets.gsm._sdk_client``) rather than the shim's removed
+internals, mirroring the CloudManagement/OSenseiDocuments harnesses.
 """
-from __future__ import annotations
 
 import importlib
 import os
@@ -16,6 +11,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "packages", "biofool-secrets"))
+
+import biofool_secrets  # noqa: E402
+import biofool_secrets.gsm as gsm  # noqa: E402
+
 
 @pytest.fixture
 def loader(monkeypatch):
@@ -23,6 +24,7 @@ def loader(monkeypatch):
     monkeypatch.delenv("USE_SECRET_MANAGER", raising=False)
     monkeypatch.delenv("SECRET_PROJECT_ID", raising=False)
     monkeypatch.delenv("PROJECT_ID", raising=False)
+    biofool_secrets.reset_caches()
     if "secret_loader" in sys.modules:
         del sys.modules["secret_loader"]
     import secret_loader
@@ -43,9 +45,9 @@ class TestDisabled:
 
     def test_no_gsm_call(self, loader, monkeypatch):
         monkeypatch.setenv("MY_SECRET", "env-value")
-        with patch.object(loader, "_sm_access") as mock_sm:
+        with patch.object(gsm, "_sdk_client", MagicMock()) as mock_client:
             assert loader.get("MY_SECRET") == "env-value"
-            mock_sm.assert_not_called()
+            mock_client.access_secret_version.assert_not_called()
 
     def test_is_enabled_false(self, loader):
         assert loader.is_enabled() is False
@@ -58,6 +60,7 @@ class TestEnabled:
     def enabled_loader(self, monkeypatch):
         monkeypatch.setenv("USE_SECRET_MANAGER", "true")
         monkeypatch.setenv("SECRET_PROJECT_ID", "test-project")
+        biofool_secrets.reset_caches()
         if "secret_loader" in sys.modules:
             del sys.modules["secret_loader"]
         import secret_loader
@@ -72,7 +75,7 @@ class TestEnabled:
         mock_resp = MagicMock()
         mock_resp.payload.data = b"gsm-value"
         mock_client.access_secret_version.return_value = mock_resp
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
 
         assert enabled_loader.get("MY_SECRET") == "gsm-value"
         mock_client.access_secret_version.assert_called_once_with(
@@ -84,9 +87,8 @@ class TestEnabled:
         mock_resp = MagicMock()
         mock_resp.payload.data = b"gsm-value"
         mock_client.access_secret_version.return_value = mock_resp
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
 
-        enabled_loader.get("CACHED_SECRET")
         enabled_loader.get("CACHED_SECRET")
         enabled_loader.get("CACHED_SECRET")
         assert mock_client.access_secret_version.call_count == 1
@@ -94,7 +96,7 @@ class TestEnabled:
     def test_negative_cache_skips_gsm(self, enabled_loader, monkeypatch):
         mock_client = MagicMock()
         mock_client.access_secret_version.side_effect = RuntimeError("not found")
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
         monkeypatch.setenv("FALLBACK_SECRET", "env-fallback")
 
         # First call: GSM fails, falls back to env var
@@ -106,7 +108,7 @@ class TestEnabled:
     def test_env_fallback_when_gsm_fails(self, enabled_loader, monkeypatch):
         mock_client = MagicMock()
         mock_client.access_secret_version.side_effect = RuntimeError("not found")
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
         monkeypatch.setenv("ENV_FALLBACK", "from-env")
 
         assert enabled_loader.get("ENV_FALLBACK") == "from-env"
@@ -114,7 +116,7 @@ class TestEnabled:
     def test_default_when_all_fail(self, enabled_loader, monkeypatch):
         mock_client = MagicMock()
         mock_client.access_secret_version.side_effect = RuntimeError("not found")
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
         monkeypatch.delenv("NO_WHERE_SECRET", raising=False)
 
         assert enabled_loader.get("NO_WHERE_SECRET", "default-val") == "default-val"
@@ -124,7 +126,7 @@ class TestEnabled:
         mock_resp = MagicMock()
         mock_resp.payload.data = b"first"
         mock_client.access_secret_version.return_value = mock_resp
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
 
         assert enabled_loader.get("INVALIDATE_ME") == "first"
         enabled_loader.invalidate_cache("INVALIDATE_ME")
@@ -137,7 +139,7 @@ class TestEnabled:
         mock_resp = MagicMock()
         mock_resp.payload.data = b"gsm-value"
         mock_client.access_secret_version.return_value = mock_resp
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
 
         full_name = "projects/other-project/secrets/MY_KEY/versions/latest"
         enabled_loader.get(full_name)
@@ -149,7 +151,7 @@ class TestEnabled:
         mock_resp = MagicMock()
         mock_resp.payload.data = b"secret-value\n"
         mock_client.access_secret_version.return_value = mock_resp
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
 
         assert enabled_loader.get("NEWLINE_SECRET") == "secret-value"
 
@@ -159,6 +161,6 @@ class TestEnabled:
         mock_resp = MagicMock()
         mock_resp.payload.data = b"  value with spaces  "
         mock_client.access_secret_version.return_value = mock_resp
-        monkeypatch.setattr(enabled_loader, "_sm_client", mock_client)
+        monkeypatch.setattr(gsm, "_sdk_client", mock_client)
 
         assert enabled_loader.get("SPACE_SECRET") == "  value with spaces  "

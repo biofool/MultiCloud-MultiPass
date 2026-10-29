@@ -30,7 +30,6 @@ pass_plan:
     - providers-registry
     - cloud-management-client
     - terraform
-    - gitlab-mirror
   components_deferred: []
 coverage:
   analyzed_domains:
@@ -41,7 +40,6 @@ coverage:
     - infrastructure-terraform
     - dashboard-ui
     - inventory
-    - gitlab-mirror
   excluded_paths:
     - __pycache__/
     - .pytest_cache/

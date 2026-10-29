@@ -41,10 +41,30 @@ follow.
   per-job (intent/actual overrun), per-project (quota-based), and
   per-billing-account (billing shutoff).
 - Provide an intent/actual reporting protocol that sub-projects integrate
-  via the `cloud_management_client` pip package.
+  via the `cloud_management_client` package — consumed as a **pinned git
+  dependency**, never vendored (see "Shared packages" below).
 - Keep the inventory and strategy docs in sync: when any repo changes its
   cloud footprint, CloudManagement is updated; when CloudManagement's
   strategy changes, every affected repo's PRD is updated.
+
+### 2.1 Shared packages (target architecture)
+
+Common infrastructure code is extracted into independently-versioned
+packages rather than copied between repos. The rule for every consuming
+repo: **pin a git dependency to the canonical repo; do not copy files.**
+
+| Package | Canonical home | Status |
+|---|---|---|
+| `cloud-management-client` | this repo (`cloud_management_client/`) | consumers pin via git-dep |
+| `biofool-secrets` (secret resolution, one `KEY_ALIASES` registry) | sibling repo | extraction |
+| cost tracker + intent/actual reporting | sibling repo | extraction |
+| `biofool-gemini` (key rotation + free→paid tiering) | sibling repo | extraction |
+| template-distributed ops scripts (`audit-deps.sh`, `scan_secrets.py`, `jev_review.py`, `allocate_cloudflare_token.py`) | `your-org/starter` | version-stamped, drift-checked |
+
+> biofool-org instance: this architecture is tracked upstream in
+> biofool/CloudManagement#128, #129, biofool/AIRichardMoon#986, #987,
+> biofool/starter#5, and biofool/magic-compact-devin#2. Keep this table in
+> sync with the upstream PRD when porting releases.
 
 ## 3. Non-goals
 

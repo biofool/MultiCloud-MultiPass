@@ -1,0 +1,10 @@
+Vendored snapshot of the canonical biofool-secrets package.
+
+Source: biofool/biofool-secrets (canonical — split from CloudManagement
+        packages/biofool-secrets via git subtree split, history kept)
+Synced:  2026-10-28, at biofool-secrets main @ 8b51429 (adds resolve_token
+         prefix/_dup chain + token CLI — biofool-secrets#1, CM#154)
+
+DO NOT EDIT — sync from the canonical repo. This snapshot exists because
+consumer CI/image builds cannot authenticate to a private git dep; it is
+replaced by a real version pin once those builds can reach the repo.

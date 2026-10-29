@@ -35,13 +35,15 @@ class TestHttpCallbackProvider:
     @patch("requests.request")
     def test_live_kill_success(self, mock_request, monkeypatch):
         monkeypatch.setenv("DRY_RUN", "false")
+        # Keep the unit test offline — the SSRF host check does real DNS.
+        monkeypatch.setattr("providers.http_callback._host_is_public", lambda url: (True, ""))
 
         mock_resp = MagicMock()
         mock_resp.status_code = 200
-        mock_resp.content = b'{"killed": true}'
-        mock_resp.json.return_value = {"killed": True}
+        mock_resp.raw.read.return_value = b'{"killed": true}'
         mock_resp.raise_for_status = MagicMock()
-        mock_request.return_value = mock_resp
+        # The provider consumes the response as a context manager.
+        mock_request.return_value.__enter__.return_value = mock_resp
 
         provider = HttpCallbackProvider()
         result = provider.kill_job(
@@ -53,6 +55,7 @@ class TestHttpCallbackProvider:
     @patch("requests.request")
     def test_live_kill_failure(self, mock_request, monkeypatch):
         monkeypatch.setenv("DRY_RUN", "false")
+        monkeypatch.setattr("providers.http_callback._host_is_public", lambda url: (True, ""))
 
         mock_request.side_effect = Exception("connection refused")
 

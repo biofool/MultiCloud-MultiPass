@@ -35,7 +35,7 @@ class Intent:
     kill: dict[str, Any] = field(default_factory=dict)
     metadata: dict[str, Any] = field(default_factory=dict)
     approved: bool = True
-    status: str = "declared"  # declared | running | completed | failed | killed
+    status: str = "declared"  # declared | running | completed | failed | killed | kill_failed
     created_at: str = ""
     updated_at: str = ""
 
