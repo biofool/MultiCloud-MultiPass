@@ -37,9 +37,16 @@ re-exported through the `intent.py` facade). Each carries a
   `intent_detection`, `intent_kill`, `intent_routes`
 - `dashboard.py`, `inventory.py` (+ `templates/`)
 
-Policy for these files: security fixes and upstream backports only. Do
-not extend or refactor them here — make the change upstream and let it
-flow back through the normal fork sync.
+Policy for these files: security fixes, upstream backports, and sanitized
+feature work. Sanitized feature work may extend these modules (for example,
+the AWS account fields in `registry.py`). Before merging it:
+
+- Remove internal identifiers: account IDs, host and network addresses,
+  subnet and VPC IDs, credentials, and internal project names.
+- Keep the module standalone-runnable, and keep the test suite passing.
+- Do not refactor unrelated code in the same change.
+
+Changes to these modules should not depend on code that exists only upstream.
 
 ## Known divergence from upstream
 

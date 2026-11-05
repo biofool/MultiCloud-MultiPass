@@ -29,6 +29,9 @@ def _get_provider(cloud: str) -> CostProvider:
     elif cloud == "openstack":
         from providers.openstack import OpenStackProvider
         _instances[cloud] = OpenStackProvider()
+    elif cloud == "aws":
+        from providers.aws import AwsProvider
+        _instances[cloud] = AwsProvider()
     elif cloud == "cloudflare":
         from providers.cloudflare import CloudflareProvider
         _instances[cloud] = CloudflareProvider()
@@ -50,13 +53,14 @@ def kill_job(kill_descriptor: dict[str, Any], reason: str) -> KillResult:
     - "http_callback" → HttpCallbackProvider (portable, any cloud)
     - "cloud_run" / "cloud_scheduler" / "gce" / "gke" → GcpProvider
     - "openstack" → OpenStackProvider
+    - "ec2" → AwsProvider
     - "cloudflare" → CloudflareProvider
     """
     kill_type = kill_descriptor.get("type", "http_callback")
 
     # GCP-native types map to the gcp provider
     gcp_types = {"cloud_run", "cloud_scheduler", "gce", "gke"}
-    cloud_key = "gcp" if kill_type in gcp_types else kill_type
+    cloud_key = "aws" if kill_type == "ec2" else ("gcp" if kill_type in gcp_types else kill_type)
 
     provider = _get_provider(cloud_key)
     return provider.kill_job(kill_descriptor, reason)
