@@ -120,7 +120,7 @@ def execute_killswitch(project_id: str, reason: str) -> list[dict]:
     starts) while unable to monitor other projects.  A critical log is
     emitted so operators are alerted via log-based metrics.
     """
-    if SELF_PROJECT_ID and project_id == SELF_PROJECT_ID:
+    if is_self_project(project_id):
         log.critical(json.dumps({
             "event": "self_kill_blocked",
             "project": project_id,
@@ -169,6 +169,17 @@ def execute_killswitch(project_id: str, reason: str) -> list[dict]:
 def is_project_protected(project_id: str) -> bool:
     """True if project_id must never be touched (env allowlist or registry)."""
     return project_id in ALLOWLIST or registry.is_allowlisted(project_id)
+
+
+def is_self_project(project_id: str) -> bool:
+    """True if project_id is the hub project, by logical id or by the GCP
+    project id of an aliased account (CISO-118)."""
+    if not SELF_PROJECT_ID:
+        return False
+    if project_id == SELF_PROJECT_ID:
+        return True
+    acct = registry.get_account(project_id)
+    return bool(acct and acct.gcp_project_id == SELF_PROJECT_ID)
 
 
 # ---------------------------------------------------------------------------
@@ -231,7 +242,7 @@ def process_alert(envelope: dict[str, Any]) -> tuple[int, str]:
     # filtering here avoids unnecessary log noise.
     target_projects = [
         p for p in alert.project_ids
-        if not is_project_protected(p) and not (SELF_PROJECT_ID and p == SELF_PROJECT_ID)
+        if not is_project_protected(p) and not is_self_project(p)
     ]
     skipped = [p for p in alert.project_ids if is_project_protected(p)]
 

@@ -15,9 +15,14 @@ providers.registry reconciliation layer) — no live GCP/network calls.
 import json
 import os
 import sys
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch, MagicMock
 
 import pytest
+
+# Reconcile compares billed cost for [now-48h, now-24h). Actuals used in the
+# tests must fall inside that window (CISO-121).
+_IN_RECONCILE_WINDOW = (datetime.now(timezone.utc) - timedelta(hours=36)).isoformat()
 
 # Mock GCP client libraries before importing main — same as test_killswitch.py.
 for _mod in ("google.cloud.run_v2", "google.cloud.scheduler_v1",
@@ -230,7 +235,8 @@ class TestReconcileEndpoint:
         mock_billed.return_value = [BilledCost(project_id="proj-a", provider="gemini", cost_usd=10.0)]
         mock_actuals.return_value = [
             intent.Actual(actual_id="a1", intent_id="i1", project_id="proj-a",
-                          provider="gemini", actual_cost_usd=9.6, actual_calls=100),
+                          provider="gemini", actual_cost_usd=9.6, actual_calls=100,
+                          created_at=_IN_RECONCILE_WINDOW),
         ]
 
         resp = app.post("/reconcile")
@@ -251,7 +257,8 @@ class TestReconcileEndpoint:
         mock_billed.return_value = [BilledCost(project_id="proj-a", provider="gemini", cost_usd=10.0)]
         mock_actuals.return_value = [
             intent.Actual(actual_id="a1", intent_id="i1", project_id="proj-a",
-                          provider="gemini", actual_cost_usd=5.0, actual_calls=100),
+                          provider="gemini", actual_cost_usd=5.0, actual_calls=100,
+                          created_at=_IN_RECONCILE_WINDOW),
         ]
 
         resp = app.post("/reconcile")
