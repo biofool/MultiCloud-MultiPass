@@ -42,8 +42,14 @@ def kill_intent(intent: Intent, reason: str, rule: str = "") -> dict[str, Any]:
     # Protection gate — the poll path (main.py) refuses to touch SELF_PROJECT_ID
     # or allowlisted projects; the intent path must apply the same rule, or an
     # overrun on a hub/allowlisted project would still fire the kill provider.
-    if (main.SELF_PROJECT_ID and intent.project_id == main.SELF_PROJECT_ID) \
-            or main.is_project_protected(intent.project_id):
+    # Aliased accounts: the GCP project can differ from the logical project_id,
+    # so the self and protection checks must cover both (#198).
+    acct = registry.get_account(intent.project_id)
+    gcp_project_id = acct.gcp_project_id if acct and acct.gcp_project_id else intent.project_id
+
+    if (main.SELF_PROJECT_ID and main.SELF_PROJECT_ID in (intent.project_id, gcp_project_id)) \
+            or main.is_project_protected(intent.project_id) \
+            or main.is_project_protected(gcp_project_id):
         log.critical(json.dumps({
             "event": "protected_kill_blocked",
             "intent_id": intent.intent_id,
@@ -74,7 +80,7 @@ def kill_intent(intent: Intent, reason: str, rule: str = "") -> dict[str, Any]:
         }))
         return {"killed": False, "reason": "no kill descriptor available"}
 
-    kill_desc = {**kill_desc, "job_id": intent.job_id, "project_id": intent.project_id}
+    kill_desc = {**kill_desc, "job_id": intent.job_id, "project_id": gcp_project_id}
     result = provider_registry.kill_job(kill_desc, reason)
 
     # Record the kill event

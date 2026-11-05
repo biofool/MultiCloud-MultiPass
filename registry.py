@@ -59,10 +59,13 @@ class Account:
     quota_rpm_cap: int = 0                # 0 = no absolute cap; rely on baseline-ratio detection only
 
     # --- Multi-cloud fields (Phase 1 extension) ---
-    cloud: str = "gcp"                    # "gcp" | "openstack" | "cloudflare" | "generic"
+    cloud: str = "gcp"                    # "gcp" | "openstack" | "aws" | "cloudflare" | "generic"
     gcp_project_id: str = ""              # actual GCP project ID (may differ from project_id)
     openstack_project: str = ""           # OpenStack project name/ID
     openstack_regions: list[str] | None = None  # OpenStack regions to monitor
+    aws_account_id: str = ""              # AWS account ID (aws only)
+    aws_region: str = ""                  # default AWS region for kill/reconcile calls (aws only)
+    aws_access_key_secret: str = ""       # GSM secret name holding the AWS access key ID (aws only)
     report_token_secret: str = ""         # Secret Manager ref or env var name for the per-project report token
     jobs: list[dict[str, Any]] | None = None     # per-job kill descriptors (fallback when intent has none)
 
@@ -82,6 +85,9 @@ class Account:
             gcp_project_id=d.get("gcp_project_id", d.get("project_id", "")),
             openstack_project=d.get("openstack_project", ""),
             openstack_regions=d.get("openstack_regions"),
+            aws_account_id=d.get("aws_account_id", ""),
+            aws_region=d.get("aws_region", ""),
+            aws_access_key_secret=d.get("aws_access_key_secret", ""),
             report_token_secret=d.get("report_token_secret", ""),
             jobs=d.get("jobs"),
         )
@@ -105,8 +111,10 @@ def _yaml_save_all(accounts: list[Account]) -> None:
     import yaml
 
     os.makedirs(os.path.dirname(ACCOUNTS_FILE) or ".", exist_ok=True)
-    with open(ACCOUNTS_FILE, "w", encoding="utf-8") as f:
+    tmp = f"{ACCOUNTS_FILE}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         yaml.safe_dump({"accounts": [a.to_dict() for a in accounts]}, f, sort_keys=False)
+    os.replace(tmp, ACCOUNTS_FILE)  # atomic: a crash mid-write cannot truncate (#198)
 
 
 # ---------------------------------------------------------------------------

@@ -128,6 +128,23 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+
+
+class _RedirectNoCreds(urllib.request.HTTPRedirectHandler):
+    """urllib re-sends Authorization/X-Gate-Token to a redirect target on
+    a DIFFERENT host (bpo-33661) — strip them when the host changes (#198)."""
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        from urllib.parse import urlparse
+        if urlparse(newurl).hostname != urlparse(req.full_url).hostname:
+            for h in ("Authorization", "X-Gate-Token"):
+                req.headers.pop(h, None)
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
+# Install so urllib.request.urlopen gets the scrubbing handler — the
+# process-global opener is what urlopen (and tests patching urlopen)
+# already use.
+urllib.request.install_opener(urllib.request.build_opener(_RedirectNoCreds()))
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -151,7 +168,7 @@ __all__ = [
 # Canonical source: biofool/CloudManagement @ cloud_management_client/.
 # Vendored copies: keep this stamp + __version__ intact so drift between
 # copies can be checked mechanically (issue #128).
-__version__ = "0.17.1"
+__version__ = "0.17.3"
 
 # Match hub INTENT_VARIANCE_THRESHOLD (issue #60). Declare
 # list_unit * calls * INTENT_HEADROOM so kill still fires at 1.2× declared.
@@ -348,9 +365,12 @@ class _Spool:
                 filepath = self._entry_path(entry_id)
                 if filepath is None:
                     return None
-                # Atomic write: write to temp then rename
+                # Atomic write: write to temp then rename. Mode 0600 at
+                # creation — usage payloads aren't credentials, but they
+                # shouldn't be world-readable on shared hosts.
                 tmp = filepath + ".tmp"
-                with open(tmp, "w", encoding="utf-8") as f:
+                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+                with os.fdopen(fd, "w", encoding="utf-8") as f:
                     json.dump(entry, f)
                 os.rename(tmp, filepath)
                 # Enforce cap after write so total never exceeds cap.
@@ -388,6 +408,14 @@ class _Spool:
                 return None
             with open(filepath, "r", encoding="utf-8") as f:
                 return json.load(f)
+        except FileNotFoundError:
+            # Expected race, not a fault: the entry was delivered and
+            # removed between list_entries()/enqueue and this read, or a
+            # duplicate queue item was processed after the first delivery
+            # removed the file (issue #1164). Benign even in strict mode —
+            # same treatment as remove(), which ignores FileNotFoundError.
+            log.debug("cloud_management: spool entry %s already delivered/removed", entry_id)
+            return None
         except (OSError, json.JSONDecodeError) as e:
             _fail(f"spool read failed for {entry_id}", e, strict=self.strict)
             return None
@@ -1047,17 +1075,22 @@ class CloudManagementClient:
     # Background worker for async report_actual
     # ------------------------------------------------------------------
 
-    def _ensure_worker(self) -> None:
+    def _ensure_worker(self) -> bool:
         """Start the background worker thread if not already running.
 
         Also replays any spool entries left by a previous process — this is
         the headline scenario for issue #12 (test_spool_survives_process_restart).
+
+        Returns True when the worker was (re)started and the on-disk spool
+        was replayed into the queue. Callers that just wrote a fresh spool
+        entry use this to avoid enqueueing the same entry a second time —
+        the replay already covers it (issue #1164).
         """
         if self._worker is not None and self._worker.is_alive():
-            return
+            return False
         with self._worker_lock:
             if self._worker is not None and self._worker.is_alive():
-                return
+                return False
             # Replay spool entries from a previous process before starting
             # the worker, so they are processed in order.
             for entry_id in self._spool.list_entries():
@@ -1068,6 +1101,7 @@ class CloudManagementClient:
                 daemon=True,
             )
             self._worker.start()
+            return True
 
     def _sleep(self, seconds: float) -> None:
         """Indirection so tests can mock sleep without actually waiting."""
@@ -1966,9 +2000,13 @@ class CloudManagementClient:
             # Async — persist to spool, then enqueue the entry ID to the
             # background worker. The worker retries with backoff on failure.
             entry_id = self._spool.write("/api/v1/actual", payload, client_seq=seq)
-            self._ensure_worker()
+            replayed = self._ensure_worker()
             if entry_id is not None:
-                self._queue.put(entry_id)
+                # If the worker just (re)started, the spool replay inside
+                # _ensure_worker already queued this fresh entry — a second
+                # put would make the worker process it twice (issue #1164).
+                if not replayed:
+                    self._queue.put(entry_id)
             else:
                 # Spool disabled — fall back to direct enqueue (best-effort,
                 # no retry, matches pre-#12 behaviour).

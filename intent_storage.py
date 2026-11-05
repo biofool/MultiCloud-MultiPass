@@ -113,8 +113,10 @@ def _yaml_load_expected_costs() -> list[ExpectedCost]:
 def _yaml_save(path: str, key: str, items: list[dict]) -> None:
     import yaml
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
-    with open(path, "w", encoding="utf-8") as f:
+    tmp = f"{path}.tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
         yaml.safe_dump({key: items}, f, sort_keys=False)
+    os.replace(tmp, path)  # atomic: a crash mid-write cannot truncate (#198)
 
 
 # --- Actual store ---
