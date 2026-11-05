@@ -112,6 +112,18 @@ def handle_poll_intents():
     )
 
 
+def _in_window(created_at: str, since, until) -> bool:
+    """True if an ISO timestamp falls in [since, until). Unparseable -> False."""
+    from datetime import datetime, timezone
+    try:
+        when = datetime.fromisoformat(created_at)
+    except (TypeError, ValueError):
+        return False
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return since <= when < until
+
+
 @bp.route("/reconcile", methods=["POST"])
 def handle_reconcile():
     """Reconciliation tier — pull actual billed costs and compare to self-reports.
@@ -143,6 +155,9 @@ def handle_reconcile():
         # Compare billed vs self-reported per provider
         self_reported = {}
         for actual in intent_mod.list_actuals(project_id=account.project_id):
+            # Compare the same window as the billed costs, not all-time (CISO-121).
+            if not _in_window(actual.created_at, since, until):
+                continue
             key = actual.provider
             if key not in self_reported:
                 self_reported[key] = {"cost": 0.0, "calls": 0}

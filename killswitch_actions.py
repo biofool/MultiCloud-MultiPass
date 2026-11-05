@@ -65,6 +65,7 @@ def disable_cloud_run_services(project_id: str, regions: list[str] | None = None
             if changed:
                 if main.DRY_RUN:
                     main.log.info(json.dumps({"event": "dry_run", "action": "scale_to_zero", "service": svc_name}))
+                    actions.append(svc_name)
                 else:
                     try:
                         req = run_v2.UpdateServiceRequest(
@@ -73,9 +74,9 @@ def disable_cloud_run_services(project_id: str, regions: list[str] | None = None
                         )
                         client.update_service(request=req)
                         main.log.info(json.dumps({"event": "action", "action": "scale_to_zero", "service": svc_name, "status": "done"}))
+                        actions.append(svc_name)
                     except Exception as exc:
                         main.log.error(json.dumps({"event": "action_error", "action": "scale_to_zero", "service": svc_name, "error": str(exc)}))
-                actions.append(svc_name)
     return actions
 
 
@@ -104,6 +105,7 @@ def pause_scheduler_jobs(project_id: str, regions: list[str] | None = None) -> l
                 job_name = job.name
                 if main.DRY_RUN:
                     main.log.info(json.dumps({"event": "dry_run", "action": "pause_scheduler", "job": job_name}))
+                    actions.append(job_name)
                 else:
                     try:
                         paused = scheduler_v1.Job()
@@ -111,9 +113,9 @@ def pause_scheduler_jobs(project_id: str, regions: list[str] | None = None) -> l
                         paused.state = scheduler_v1.Job.State.PAUSED
                         client.update_job(request={"job": paused, "update_mask": {"paths": ["state"]}})
                         main.log.info(json.dumps({"event": "action", "action": "pause_scheduler", "job": job_name, "status": "done"}))
+                        actions.append(job_name)
                     except Exception as exc:
                         main.log.error(json.dumps({"event": "action_error", "action": "pause_scheduler", "job": job_name, "error": str(exc)}))
-                actions.append(job_name)
     return actions
 
 
@@ -150,15 +152,16 @@ def disable_build_triggers(project_id: str) -> list[str]:
             continue
         if main.DRY_RUN:
             main.log.info(json.dumps({"event": "dry_run", "action": "disable_trigger", "trigger": tid}))
+            actions.append(tid)
         else:
             try:
                 patch_url = f"https://cloudbuild.googleapis.com/v2/projects/{project_id}/triggers/{tid}"
                 patch_resp = requests.patch(patch_url, headers=headers, json={"disabled": True}, timeout=30)
                 patch_resp.raise_for_status()
                 main.log.info(json.dumps({"event": "action", "action": "disable_trigger", "trigger": tid, "status": "done"}))
+                actions.append(tid)
             except Exception as exc:
                 main.log.error(json.dumps({"event": "action_error", "action": "disable_trigger", "trigger": tid, "error": str(exc)}))
-        actions.append(tid)
     return actions
 
 
@@ -195,13 +198,14 @@ def stop_compute_instances(project_id: str, zones: list[str] | None = None) -> l
                 inst_name = inst.name
                 if main.DRY_RUN:
                     main.log.info(json.dumps({"event": "dry_run", "action": "stop_instance", "instance": inst_name, "zone": zone}))
+                    actions.append(f"{zone}/{inst_name}")
                 else:
                     try:
                         client.stop(project=project_id, zone=zone, instance=inst_name)
                         main.log.info(json.dumps({"event": "action", "action": "stop_instance", "instance": inst_name, "zone": zone, "status": "done"}))
+                        actions.append(f"{zone}/{inst_name}")
                     except Exception as exc:
                         main.log.error(json.dumps({"event": "action_error", "action": "stop_instance", "instance": inst_name, "error": str(exc)}))
-                actions.append(f"{zone}/{inst_name}")
     return actions
 
 
@@ -230,13 +234,14 @@ def revoke_api_keys(project_id: str) -> list[str]:
             continue  # already soft-deleted
         if main.DRY_RUN:
             main.log.info(json.dumps({"event": "dry_run", "action": "revoke_api_key", "key": key_name}))
+            actions.append(key_name)
         else:
             try:
                 client.delete_key(name=key_name)
                 main.log.info(json.dumps({"event": "action", "action": "revoke_api_key", "key": key_name, "status": "done"}))
+                actions.append(key_name)
             except Exception as exc:
                 main.log.error(json.dumps({"event": "action_error", "action": "revoke_api_key", "key": key_name, "error": str(exc)}))
-        actions.append(key_name)
     return actions
 
 
@@ -269,6 +274,7 @@ def scale_down_gke_clusters(project_id: str, zones_or_regions: list[str] | None 
             pool_id = f"{cluster.name}/{pool.name}"
             if main.DRY_RUN:
                 main.log.info(json.dumps({"event": "dry_run", "action": "scale_down_gke", "pool": pool_id}))
+                actions.append(pool_id)
             else:
                 try:
                     pool_name = (
@@ -277,9 +283,9 @@ def scale_down_gke_clusters(project_id: str, zones_or_regions: list[str] | None 
                     )
                     client.set_node_pool_size(name=pool_name, node_count=0)
                     main.log.info(json.dumps({"event": "action", "action": "scale_down_gke", "pool": pool_id, "status": "done"}))
+                    actions.append(pool_id)
                 except Exception as exc:
                     main.log.error(json.dumps({"event": "action_error", "action": "scale_down_gke", "pool": pool_id, "error": str(exc)}))
-            actions.append(pool_id)
     return actions
 
 
