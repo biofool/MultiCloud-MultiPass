@@ -41,3 +41,12 @@ packages = ["cloud_management_client"]
 # AttributeError on a FlaskClient. These tests don't use pytest-flask
 # features, so disable the plugin to avoid the collision.
 addopts = "-p no:flask"
+
+[tool.ruff.lint]
+select = ["C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.pylint.format]
+max-module-lines = 250
