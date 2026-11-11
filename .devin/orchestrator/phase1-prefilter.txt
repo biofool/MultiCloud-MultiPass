@@ -1,0 +1,1113 @@
+=== PHASE 1A: directory map (maxdepth 3)
+.
+./secret_loader.py
+./README.md
+./tests
+./tests/test_aws_session.py
+./tests/test_dashboard.py
+./tests/test_cloud_management_client.py
+./tests/test_inventory.py
+./tests/test_cloud_management_client_offline.py
+./tests/test_killswitch.py
+./tests/test_ciso_findings.py
+./tests/test_poller.py
+./tests/test_providers.py
+./tests/test_intent.py
+./tests/__pycache__
+./tests/__pycache__/test_poller.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_intent.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_cloud_management_client_offline.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_intent_sev_fixes.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_registry.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_providers.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_inventory.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_dashboard.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_cloud_management_client.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_admin_routes.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_ciso_findings.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_aws_session.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_secret_loader.cpython-314-pytest-9.2.0.pyc
+./tests/__pycache__/test_killswitch.cpython-314-pytest-9.2.0.pyc
+./tests/test_admin_routes.py
+./tests/test_intent_sev_fixes.py
+./tests/test_registry.py
+./tests/test_secret_loader.py
+./admin_routes.py
+./cloud_management_client.egg-info
+./cloud_management_client.egg-info/PKG-INFO
+./cloud_management_client.egg-info/requires.txt
+./cloud_management_client.egg-info/top_level.txt
+./cloud_management_client.egg-info/dependency_links.txt
+./cloud_management_client.egg-info/SOURCES.txt
+./scripts
+./scripts/deploy.sh
+./scripts/register_project.py
+./scripts/fix
+./scripts/fix/capture_dashboard.py
+./scripts/fix/check_bq_billing_export.py
+./scripts/audit-deps.sh
+./main.py
+./EXECUTIVE-SUMMARY.md
+./LICENSE
+./inventory.py
+./config
+./config/accounts.example.yaml
+./AGENTS.md
+./killswitch_actions.py
+./CONTRIBUTING.md
+./CLAUDE.md
+./dashboard.py
+./paths.py
+./intent_storage.py
+./TechnicalMarketingReadMe.md
+./deploy_quantum_aikido_terraform.sh
+./dedup.py
+./registry.py
+./eslint.config.mjs
+./cloud_management_client
+./cloud_management_client/__init__.py
+./cloud_management_client/VENDORED-FROM.txt
+./cloud_management_client/__pycache__
+./cloud_management_client/__pycache__/__init__.cpython-314.pyc
+./poller.py
+./TEST_PLAN.md
+./intent.py
+./intent_models.py
+./terraform
+./terraform/README.md
+./terraform/locals.tf
+./terraform/storage.tf
+./terraform/outputs.tf
+./terraform/cloud_run.tf
+./terraform/variables.tf
+./terraform/modules
+./terraform/modules/aws_ec2
+./terraform/scheduler.tf
+./terraform/pubsub.tf
+./terraform/provider.tf
+./terraform/iam.tf
+./terraform/budgets.tf
+./terraform/terraform.tfvars.example
+./requirements.txt
+./__pycache__
+./__pycache__/intent_auth.cpython-314.pyc
+./__pycache__/dashboard.cpython-314.pyc
+./__pycache__/dedup.cpython-314.pyc
+./__pycache__/intent_models.cpython-314.pyc
+./__pycache__/paths.cpython-314.pyc
+./__pycache__/intent_detection.cpython-314.pyc
+./__pycache__/alerts.cpython-314.pyc
+./__pycache__/inventory.cpython-314.pyc
+./__pycache__/aws_session.cpython-314.pyc
+./__pycache__/secret_loader.cpython-314.pyc
+./__pycache__/admin_routes.cpython-314.pyc
+./__pycache__/intent_storage.cpython-314.pyc
+./__pycache__/intent_routes.cpython-314.pyc
+./__pycache__/intent.cpython-314.pyc
+./__pycache__/killswitch_actions.cpython-314.pyc
+./__pycache__/intent_kill.cpython-314.pyc
+./__pycache__/poller.cpython-314.pyc
+./__pycache__/registry.cpython-314.pyc
+./__pycache__/main.cpython-314.pyc
+./pyproject.toml
+./wiki
+./wiki/Development.md
+./wiki/Security.md
+./wiki/Architecture.md
+./wiki/Home.md
+./packages
+./packages/biofool-secrets
+./packages/biofool-secrets/README.md
+./packages/biofool-secrets/tests
+./packages/biofool-secrets/biofool_secrets
+./packages/biofool-secrets/VENDORED-FROM.txt
+./packages/biofool-secrets/pyproject.toml
+./docs
+./docs/convergence.md
+./docs/per-repo-api-specs.md
+./docs/multi-cloud-monitoring-plan.md
+./docs/PRD.md
+./intent_auth.py
+./providers
+./providers/openstack.py
+./providers/__init__.py
+./providers/cloudflare.py
+./providers/registry.py
+./providers/http_callback.py
+./providers/__pycache__
+./providers/__pycache__/openstack.cpython-314.pyc
+./providers/__pycache__/http_callback.cpython-314.pyc
+./providers/__pycache__/gcp.cpython-314.pyc
+./providers/__pycache__/__init__.cpython-314.pyc
+./providers/__pycache__/aws.cpython-314.pyc
+./providers/__pycache__/registry.cpython-314.pyc
+./providers/__pycache__/base.cpython-314.pyc
+./providers/aws.py
+./providers/gcp.py
+./providers/base.py
+./intent_routes.py
+./intent_detection.py
+./templates
+./templates/dashboard.html
+./templates/partials
+./templates/partials/_bq_warning.html
+./templates/partials/_budget_thresholds.html
+./templates/partials/_dashboard_script.html
+./templates/partials/_footer.html
+./templates/partials/_bottom_row.html
+./templates/partials/_stat_cards.html
+./templates/partials/_team_accounts.html
+./templates/partials/_header.html
+./templates/partials/_charts.html
+./aws_session.py
+./sql
+./sql/04_recent_spikes.sql
+./sql/05_daily_summary_table.sql
+./sql/02_mtd_spend_by_project.sql
+./sql/03_top_services.sql
+./sql/01_daily_spend_by_project.sql
+./TECHNOLOGY-UNDERPINNINGS.md
+./alerts.py
+./intent_kill.py
+./Dockerfile
+
+=== PHASE 1B: files >150 lines with signatures
+./tests/test_aws_session.py (197 lines)
+  7:from unittest.mock import MagicMock, patch
+  9:import pytest
+  10:from botocore.exceptions import ClientError
+  12:import aws_session
+  26:def _clean_state(monkeypatch):
+  37:def _client_error(code: str) -> ClientError:
+  41:def _use_secretsmanager(monkeypatch):
+  47:class TestDefaultSource:
+  48:    def test_default_chain_does_not_read_secrets_manager(self, monkeypatch, _clean_state):
+  56:    def test_profile_is_passed_through(self, monkeypatch):
+  63:class TestSecretsManagerSource:
+  64:    def test_reads_both_keys_and_builds_session(self, monkeypatch, _clean_state):
+  79:    def test_missing_secret_ref_raises_without_fallback(self, monkeypatch, _clean_state):
+  89:    def test_access_denied_raises_without_fallback(self, monkeypatch, _clean_state):
+  99:    def test_unknown_source_fails_closed(self, monkeypatch):
+  108:class TestSessionLifetime:
+  109:    def test_session_is_cached_within_ttl(self, monkeypatch, _clean_state):
+  121:    def test_expired_session_rereads_secret(self, monkeypatch, _clean_state):
+  133:    def test_invalidate_forces_reread(self, monkeypatch, _clean_state):
+  145:class TestIsAuthError:
+  147:    def test_credential_codes_are_auth_errors(self, code):
+  150:    def test_permission_error_is_not_auth_error(self):
+  153:    def test_credential_error_is_auth_error(self):
+  156:    def test_plain_exception_is_not_auth_error(self):
+  160:class TestKillFailsClosed:
+  161:    def test_kill_refused_when_secret_unreadable(self, monkeypatch, _clean_state):
+  163:        from providers.aws import AwsProvider
+  180:    def test_kill_uses_secret_backed_session(self, monkeypatch, _clean_state):
+  181:        from providers.aws import AwsProvider
+./tests/test_dashboard.py (190 lines)
+  9:import json
+  10:import os
+  11:import sys
+  12:from unittest.mock import patch, MagicMock
+  14:import pytest
+  23:import main
+  27:def client():
+  40:class TestDashboardPage:
+  41:    def test_dashboard_renders(self, client):
+  47:    def test_dashboard_shows_budget(self, client):
+  51:    def test_dashboard_shows_warning_when_no_bq(self, client):
+  60:class TestDashboardAPI:
+  61:    def test_summary_no_bq_table(self, client):
+  71:    def test_summary_with_data(self, mock_bq, client):
+  75:            import dashboard
+  87:    def test_daily_endpoint(self, mock_bq, client):
+  88:        from datetime import date
+  93:        import dashboard
+  102:    def test_services_endpoint(self, mock_bq, client):
+  107:        import dashboard
+  116:    def test_projects_endpoint(self, mock_bq, client):
+  121:        import dashboard
+  130:    def test_spike_endpoint(self, mock_bq, client):
+  132:        import dashboard
+  140:    def test_bq_error_returns_empty(self, mock_bq, client):
+  142:        import dashboard
+  149:    def test_accounts_endpoint_empty_registry(self, client):
+  150:        import dashboard
+  158:    def test_accounts_endpoint_with_spend(self, client):
+  159:        import dashboard
+  160:        import registry as registry_mod
+  175:    def test_api_caching(self, client):
+  177:        import dashboard
+  181:        def counting_query(sql):
+./tests/test_cloud_management_client.py (238 lines)
+  7:import os
+  8:import sys
+  9:import time
+  11:import pytest
+  15:from cloud_management_client import (
+  35:def make_client() -> CloudManagementClient:
+  44:def test_declare_and_report():
+  80:def test_overrun_detection():
+  109:def test_context_manager():
+  130:def test_context_manager_failure():
+  151:def test_disabled_client():
+  160:def test_async_report_and_flush():
+  207:def test_version():
+  217:def test_unauthorized():
+./tests/test_inventory.py (170 lines)
+  3:import json
+  4:import os
+  5:import importlib
+  6:import tempfile
+  7:import pytest
+  9:import registry
+  10:import inventory
+  14:def temp_accounts(tmp_path, monkeypatch):
+  45:def temp_tfstate(tmp_path, monkeypatch):
+  103:class TestBuildInventory:
+  104:    def test_returns_accounts_and_resources(self, temp_accounts, temp_tfstate):
+  110:    def test_account_count(self, temp_accounts, temp_tfstate):
+  114:    def test_resource_count_excludes_untracked_types(self, temp_accounts, temp_tfstate):
+  120:    def test_resources_associated_with_accounts(self, temp_accounts, temp_tfstate):
+  129:    def test_summary_by_cloud(self, temp_accounts, temp_tfstate):
+  133:    def test_summary_by_type(self, temp_accounts, temp_tfstate):
+  140:    def test_no_tfstate_returns_empty_resources(self, temp_accounts, tmp_path, monkeypatch):
+  147:    def test_malformed_tfstate_logged_and_skipped(self, temp_accounts, tmp_path, monkeypatch):
+  158:class TestInventoryEndpoint:
+  159:    def test_get_inventory_returns_200(self, temp_accounts, temp_tfstate):
+  160:        import flask
+  161:        from inventory import bp as inventory_bp
+./tests/test_cloud_management_client_offline.py (230 lines)
+  8:import json
+  9:import glob
+  10:import os
+  11:import sys
+  13:import pytest
+  17:from cloud_management_client import CloudManagementClient, __version__
+  24:def _client(spool_dir, token="test-token"):
+  33:def _spooled_seqs(spool_dir):
+  41:def test_version_is_compared_numerically():
+  51:def test_client_seq_continues_above_spool_after_restart(tmp_path):
+  75:def test_client_seq_is_per_intent(tmp_path):
+  88:def test_disabled_client_does_not_spool(tmp_path):
+  98:def test_corrupt_spool_entry_does_not_break_construction(tmp_path):
+  118:def test_spool_can_be_disabled(tmp_path):
+  132:def test_permanent_failure_drops_spool_entry(tmp_path):
+  134:    import urllib.error
+  135:    from unittest.mock import patch, MagicMock
+  136:    from cloud_management_client import CloudManagementClient
+  154:def test_transient_failure_retries_then_delivers(tmp_path):
+  157:    import urllib.error
+  158:    from unittest.mock import patch
+  159:    from cloud_management_client import CloudManagementClient
+  168:    def flaky(path, payload, timeout=None):
+  178:def test_worker_thread_started(tmp_path):
+  182:    from cloud_management_client import CloudManagementClient
+  196:def test_corrupt_spool_entry_is_dropped_not_replayed_forever(tmp_path):
+  206:def test_enqueue_entry_dedups_inflight(tmp_path):
+  209:    import queue as _queue
+  222:def test_plaintext_http_nonlocal_base_url_warns(tmp_path, caplog):
+  224:    import logging
+./tests/test_killswitch.py (393 lines)
+  13:import json
+  14:import base64
+  15:import os
+  16:import sys
+  17:import time
+  18:from unittest.mock import patch, MagicMock
+  20:import pytest
+  30:import main
+  37:def make_envelope(data: dict, msg_id: str = "test-123") -> dict:
+  50:def make_alert(
+  74:class TestParsePubsubMessage:
+  75:    def test_valid_budget_alert(self):
+  84:    def test_forecast_alert(self):
+  92:    def test_malformed_json(self):
+  102:    def test_missing_data_field(self):
+  107:    def test_missing_message_key(self):
+  111:    def test_single_project_string(self):
+  119:    def test_no_projects(self):
+  132:class TestShouldTakeAction:
+  133:    def test_actual_100_percent(self):
+  141:    def test_actual_below_100(self):
+  149:    def test_forecast_90_percent(self):
+  157:    def test_forecast_below_90(self):
+  165:    def test_actual_50_with_forecast_over_budget(self):
+  173:    def test_emergency_150_percent(self):
+  186:class TestDedup:
+  187:    def test_first_message_not_duplicate(self):
+  191:    def test_second_same_message_is_duplicate(self):
+  196:    def test_different_messages_not_duplicate(self):
+  201:    def test_expired_messages_cleaned(self):
+  212:class TestProcessAlert:
+  213:    def setup_method(self):
+  218:    def test_malformed_envelope_returns_400(self):
+  222:    def test_below_threshold_returns_200(self):
+  228:    def test_allowlisted_project_skipped(self):
+  235:    def test_duplicate_returns_200(self):
+  243:    def test_action_taken_on_100_percent(self, mock_disable):
+  252:    def test_dry_run_does_not_call_api(self, mock_disable):
+  264:class TestFlaskEndpoints:
+  265:    def setup_method(self):
+  271:    def test_health(self):
+  275:    def test_info(self):
+  281:    def test_post_malformed(self):
+  285:    def test_post_valid_alert(self):
+  295:class TestBillingShutoffGuard:
+  296:    def test_disabled_by_default(self):
+  302:    def test_dry_run_logs_only(self, mock_client_cls):
+  314:class TestApiKeyRevokeGuard:
+  315:    def test_disabled_by_default(self):
+  320:class TestGkeScaleDownGuard:
+  321:    def test_disabled_by_default(self):
+  330:class TestExecuteKillswitch:
+  331:    def setup_method(self):
+  338:    def test_aggregates_actions_from_all_functions(self, mock_disable):
+  346:    def test_no_actions_when_nothing_to_do(self, mock_disable):
+  356:class TestIsProjectProtected:
+  357:    def test_env_allowlist_protects(self):
+  362:    def test_registry_allowlist_protects(self):
+  367:    def test_unprotected_when_neither(self):
+  377:class TestFailedActionNotReported:
+  378:    def test_failed_stop_instance_not_in_actions(self):
+  381:        import killswitch_actions
+./tests/test_providers.py (391 lines)
+  3:import os
+  4:import sys
+  5:from unittest.mock import patch, MagicMock
+  7:import pytest
+  11:from providers.base import BilledCost, KillResult, CostProvider
+  12:from providers.http_callback import HttpCallbackProvider
+  13:from providers.registry import kill_job, _get_provider
+  16:class TestHttpCallbackProvider:
+  17:    def test_dry_run_kill(self, monkeypatch):
+  29:    def test_missing_url(self):
+  36:    def test_live_kill_success(self, mock_request, monkeypatch):
+  56:    def test_live_kill_failure(self, mock_request, monkeypatch):
+  71:class TestAwsProvider:
+  72:    def test_dry_run_stop(self, monkeypatch):
+  74:        from providers.aws import AwsProvider
+  85:    def test_missing_instance_id(self, monkeypatch):
+  87:        from providers.aws import AwsProvider
+  94:    def test_invalid_action(self, monkeypatch):
+  96:        from providers.aws import AwsProvider
+  106:    def test_unknown_kill_type(self, monkeypatch):
+  108:        from providers.aws import AwsProvider
+  115:    def test_live_terminate_calls_boto3(self, monkeypatch):
+  117:        from providers.aws import AwsProvider
+  132:    def test_live_kill_failure(self, monkeypatch):
+  134:        from providers.aws import AwsProvider
+  149:    def test_fetch_billed_costs(self, monkeypatch):
+  150:        from datetime import datetime
+  151:        from providers.aws import AwsProvider
+  177:    def test_fetch_billed_costs_error_returns_empty(self, monkeypatch):
+  178:        from datetime import datetime
+  179:        from providers.aws import AwsProvider
+  192:class TestProviderRegistry:
+  193:    def test_get_gcp_provider(self):
+  197:    def test_get_openstack_provider(self):
+  201:    def test_get_aws_provider(self):
+  205:    def test_get_http_callback_provider(self):
+  209:    def test_get_unknown_falls_back(self):
+  213:    def test_kill_job_routes_http_callback(self, monkeypatch):
+  215:        import importlib
+  216:        import providers.http_callback
+  217:        import providers.registry
+  227:    def test_kill_job_routes_gcp_cloud_run(self, monkeypatch):
+  229:        import importlib
+  230:        import providers.gcp
+  231:        import providers.registry
+  242:    def test_kill_job_routes_gcp_cloud_scheduler(self, monkeypatch):
+  244:        import importlib
+  245:        import providers.gcp
+  246:        import providers.registry
+  257:    def test_kill_job_routes_aws_ec2(self, monkeypatch):
+  259:        import importlib
+  260:        import providers.aws
+  261:        import providers.registry
+  272:    def test_kill_job_routes_gcp_gce(self, monkeypatch):
+  274:        import importlib
+  275:        import providers.gcp
+  276:        import providers.registry
+  288:class TestGcpProviderValidation:
+  289:    def test_cloud_run_missing_project(self, monkeypatch):
+  291:        import importlib
+  292:        import providers.gcp
+  303:    def test_cloud_run_missing_service(self, monkeypatch):
+  305:        import importlib
+  306:        import providers.gcp
+  317:    def test_unknown_kill_type(self, monkeypatch):
+  319:        import importlib
+  320:        import providers.gcp
+  329:class TestRegistryExtension:
+  330:    def test_account_multi_cloud_fields(self):
+  331:        import registry
+  349:    def test_account_gcp_with_jobs(self):
+  350:        import registry
+  365:    def test_account_defaults_to_gcp(self):
+  366:        import registry
+  371:    def test_account_aws_fields(self):
+  372:        import registry
+./tests/test_intent.py (792 lines)
+  3:import json
+  4:import os
+  5:import sys
+  6:import tempfile
+  7:from unittest.mock import patch, MagicMock
+  9:import pytest
+  14:import intent
+  15:import registry
+  19:def yaml_backend(tmp_path, monkeypatch):
+  36:    import importlib
+  55:def app(yaml_backend):
+  57:    import main
+  62:class TestDeclareIntent:
+  63:    def test_valid_intent(self, app):
+  83:    def test_missing_project_id(self, app):
+  90:    def test_unauthorized(self, app):
+  97:    def test_no_auth_header(self, app):
+  103:    def test_intent_denied_when_budget_exceeded(self, app):
+  107:        import intent as intent_mod
+  108:        from datetime import datetime, timezone
+  148:class TestReportActual:
+  149:    def test_valid_actual(self, app):
+  179:    def test_actual_triggers_overrun_kill(self, app):
+  211:    def test_actual_intent_not_found(self, app):
+  222:    def test_incremental_actuals(self, app):
+  263:        import intent as intent_mod
+  270:class TestExpectedCosts:
+  271:    def test_get_expected_costs_empty(self, app):
+  280:    def test_get_expected_costs_unauthorized(self, app):
+  286:    def test_get_expected_costs_no_auth_header(self, app):
+  290:    def test_save_and_get_expected_costs(self, yaml_backend):
+  291:        import intent as intent_mod
+  307:class TestListIntents:
+  308:    def test_list_all_intents(self, app):
+  326:    def test_list_intents_by_project(self, app):
+  334:    def test_list_intents_by_project_unauthorized(self, app):
+  340:    def test_list_intents_by_project_no_auth_header(self, app):
+  345:class TestManualKill:
+  346:    def test_manual_kill(self, app):
+  369:    def test_manual_kill_unauthorized(self, app):
+  388:    def test_manual_kill_not_found(self, app):
+  399:class TestBudgetEndpoint:
+  400:    def test_get_budget_authorized(self, app):
+  411:    def test_get_budget_unauthorized(self, app):
+  417:    def test_post_budget_admit(self, app):
+  427:    def test_post_budget_deferred(self, app):
+  429:        import intent as intent_mod
+  430:        from datetime import datetime, timezone
+  461:    def test_post_budget_denied_over_budget(self, app):
+  463:        import intent as intent_mod
+  464:        from datetime import datetime, timezone
+  495:class TestGetSingleIntent:
+  496:    def test_get_intent_found(self, app):
+  511:    def test_get_intent_not_found(self, app):
+  516:class TestKillOrders:
+  517:    def test_list_kill_orders_empty(self, app):
+  525:    def test_list_kill_orders_missing_project(self, app):
+  531:    def test_list_kill_orders_unauthorized(self, app):
+  538:class TestReportExposure:
+  539:    def test_report_exposure(self, app):
+  549:    def test_report_exposure_missing_project(self, app):
+  556:    def test_report_exposure_unauthorized(self, app):
+  564:class TestClientSeqEnforcement:
+  567:    def test_client_seq_picks_latest(self, yaml_backend):
+  568:        import intent as intent_mod
+  569:        from datetime import datetime, timezone
+  614:    def test_client_seq_backward_compat(self, yaml_backend):
+  616:        import intent as intent_mod
+  617:        from datetime import datetime, timezone
+  650:class TestIssue5Security:
+  653:    def _declare_with_kill(self, app):
+  670:    def test_report_actual_rejects_cross_tenant_intent(self, app):
+  683:    def test_intent_get_redacts_kill_credentials(self, app):
+  690:    def test_intents_list_redacts_kill_credentials(self, app):
+  698:    def test_bad_numeric_fields_return_400_not_500(self, app):
+  714:    def test_failed_kill_marks_kill_failed_not_killed(self, app, monkeypatch):
+  715:        import intent as intent_mod
+  716:        import intent_kill
+  717:        from providers.base import KillResult
+  718:        from providers import registry as provider_registry
+  734:    def test_protected_project_kill_blocked(self, app, monkeypatch):
+  735:        import intent as intent_mod
+  736:        import intent_kill
+  737:        import main
+  749:    def test_project_month_spend_uses_latest_per_intent(self, app):
+  751:        from datetime import datetime, timezone
+  752:        import intent as intent_mod
+  753:        from intent_detection import project_month_spend
+  773:class TestHttpCallbackSsrf:
+  774:    def test_metadata_ip_blocked(self):
+  775:        from providers.http_callback import _host_is_public
+  779:    def test_loopback_blocked(self):
+  780:        from providers.http_callback import _host_is_public
+  784:    def test_public_ip_allowed(self, monkeypatch):
+  785:        import socket as _socket
+  786:        import providers.http_callback as mod
+./tests/test_admin_routes.py (273 lines)
+  15:import json
+  16:import os
+  17:import sys
+  18:from datetime import datetime, timedelta, timezone
+  19:from unittest.mock import patch, MagicMock
+  21:import pytest
+  34:import main  # noqa: E402
+  35:import registry  # noqa: E402
+  36:import intent  # noqa: E402
+  40:def app():
+  45:def make_account(**kwargs):
+  57:def make_intent(**kwargs):
+  71:class TestInfoEndpoint:
+  72:    def test_info_returns_service_metadata(self, app):
+  80:    def test_info_lists_expected_endpoints(self, app):
+  96:class TestPollEndpoint:
+  98:    def test_poll_reports_trips(self, mock_poll, app):
+  110:    def test_poll_no_trips(self, mock_poll, app):
+  122:class TestPollIntentsEndpoint:
+  124:    def test_no_running_intents(self, mock_list, app):
+  135:    def test_overrun_triggers_kill(self, mock_list, mock_overrun, mock_budget, mock_kill, app):
+  154:    def test_self_project_overrun_is_blocked(self, mock_list, mock_overrun, mock_budget, mock_kill, app, monkeypatch):
+  170:    def test_no_overrun_but_budget_exceeded_triggers_kill(self, mock_list, mock_overrun, mock_budget, mock_kill, app):
+  188:    def test_no_overrun_and_no_budget_issue_is_silent(self, mock_list, mock_overrun, mock_budget, mock_kill, app):
+  204:class TestReconcileEndpoint:
+  206:    def test_allowlisted_account_is_skipped(self, mock_accounts, app):
+  218:    def test_no_billing_data_reported(self, mock_accounts, mock_billed, app):
+  231:    def test_small_variance_does_not_recalibrate(self, mock_accounts, mock_billed, mock_actuals, mock_save, app):
+  232:        from providers.base import BilledCost
+  253:    def test_large_variance_recalibrates_expected_cost(self, mock_accounts, mock_billed, mock_actuals, mock_save, app):
+  254:        from providers.base import BilledCost
+./tests/test_secret_loader.py (166 lines)
+  7:import importlib
+  8:import os
+  9:import sys
+  10:from unittest.mock import MagicMock, patch
+  12:import pytest
+  17:import biofool_secrets  # noqa: E402
+  18:import biofool_secrets.gsm as gsm  # noqa: E402
+  22:def loader(monkeypatch):
+  30:    import secret_loader
+  35:class TestDisabled:
+  38:    def test_returns_env_var(self, loader, monkeypatch):
+  42:    def test_returns_default_when_unset(self, loader, monkeypatch):
+  46:    def test_no_gsm_call(self, loader, monkeypatch):
+  52:    def test_is_enabled_false(self, loader):
+  56:class TestEnabled:
+  60:    def enabled_loader(self, monkeypatch):
+  66:        import secret_loader
+  70:    def test_is_enabled_true(self, enabled_loader):
+  73:    def test_resolves_from_gsm(self, enabled_loader, monkeypatch):
+  85:    def test_positive_cache(self, enabled_loader, monkeypatch):
+  96:    def test_negative_cache_skips_gsm(self, enabled_loader, monkeypatch):
+  108:    def test_env_fallback_when_gsm_fails(self, enabled_loader, monkeypatch):
+  116:    def test_default_when_all_fail(self, enabled_loader, monkeypatch):
+  124:    def test_invalidate_cache(self, enabled_loader, monkeypatch):
+  137:    def test_full_resource_name_passed_through(self, enabled_loader, monkeypatch):
+  148:    def test_trailing_newline_stripped(self, enabled_loader, monkeypatch):
+  158:    def test_leading_whitespace_preserved(self, enabled_loader, monkeypatch):
+./admin_routes.py (253 lines)
+  32:from __future__ import annotations
+  34:import json
+  36:import flask
+  38:import main
+  39:import registry
+  45:def handle_poll():
+  52:    import poller
+  63:def handle_poll_intents():
+  74:    import intent as intent_mod
+  115:def _parse_ts(created_at: str):
+  117:    from datetime import datetime, timezone
+  127:def _in_window(created_at: str, since, until) -> bool:
+  134:def handle_reconcile():
+  142:    from datetime import datetime, timedelta, timezone
+  143:    from providers import registry as provider_registry
+  144:    import intent as intent_mod
+  223:def info():
+./scripts/fix/check_bq_billing_export.py (350 lines)
+  35:from __future__ import annotations
+  37:import argparse
+  38:import json
+  39:import os
+  40:import sys
+  41:import time
+  42:from datetime import datetime, timezone
+  43:from pathlib import Path
+  48:import urllib.request
+  49:import urllib.error
+  50:import urllib.parse
+  55:from paths import resolve as _resolve_path  # noqa: E402
+  58:def _get_access_token() -> str:
+  60:    import subprocess
+  68:def _api_get(url: str, token: str, headers: dict | None = None) -> dict:
+  83:def _api_post(url: str, token: str, body: dict, headers: dict | None = None) -> dict:
+  99:def check_apis(project: str, token: str) -> dict:
+  116:def check_dataset(project: str, dataset: str, token: str) -> dict:
+  130:def check_runtime_sa(project: str, token: str) -> dict:
+  157:def check_export_tables(project: str, dataset: str, billing_accounts: list[str], token: str) -> dict:
+  184:def check_table_rows(project: str, dataset: str, billing_accounts: list[str], token: str) -> dict:
+  205:def main() -> int:
+  223:        import subprocess
+  235:            import re
+./main.py (303 lines)
+  32:from __future__ import annotations
+  34:import json
+  35:import logging
+  36:import os
+  37:import sys
+  38:from typing import Any
+  40:import flask
+  41:from google.cloud import run_v2, scheduler_v1, compute_v1, billing_v1  # noqa: F401 (re-exported: `main.billing_v1` etc. are patched directly in tests, and killswitch_actions.py imports the same cached modules)
+  43:import registry
+  87:from alerts import (  # noqa: E402
+  94:from dedup import _DEDUP_TTL_SECONDS, _is_duplicate, _processed_messages  # noqa: E402
+  95:from killswitch_actions import (  # noqa: E402
+  110:def execute_killswitch(project_id: str, reason: str) -> list[dict]:
+  169:def is_project_protected(project_id: str) -> bool:
+  174:def is_self_project(project_id: str) -> bool:
+  189:def process_alert(envelope: dict[str, Any]) -> tuple[int, str]:
+  270:from dashboard import bp as dashboard_bp
+  274:from intent import bp as intent_bp
+  278:from inventory import bp as inventory_bp
+  283:from admin_routes import bp as admin_bp
+  288:def handle_pubsub():
+  297:def health():
+./inventory.py (178 lines)
+  18:from __future__ import annotations
+  20:import json
+  21:import logging
+  22:import os
+  23:from dataclasses import dataclass, asdict, field
+  24:from typing import Any
+  26:import registry
+  27:from paths import resolve as _resolve_path
+  32:def _tf_state_file() -> str:
+  41:class Resource:
+  51:    def to_dict(self) -> dict[str, Any]:
+  55:def _load_terraform_resources() -> list[Resource]:
+  110:def build_inventory() -> dict[str, Any]:
+  165:import flask
+  171:def get_inventory():
+./killswitch_actions.py (326 lines)
+  22:from __future__ import annotations
+  24:import json
+  26:from google.cloud import run_v2, scheduler_v1, compute_v1, billing_v1
+  28:import main
+  34:def _run_parent(project_id: str, region: str) -> str:
+  38:def disable_cloud_run_services(project_id: str, regions: list[str] | None = None) -> list[str]:
+  87:def pause_scheduler_jobs(project_id: str, regions: list[str] | None = None) -> list[str]:
+  126:def disable_build_triggers(project_id: str) -> list[str]:
+  132:    import requests
+  133:    import google.auth.transport.requests as tr
+  134:    import google.auth
+  172:def stop_compute_instances(project_id: str, zones: list[str] | None = None) -> list[str]:
+  216:def revoke_api_keys(project_id: str) -> list[str]:
+  220:    from google.cloud import api_keys_v2
+  252:def scale_down_gke_clusters(project_id: str, zones_or_regions: list[str] | None = None) -> list[str]:
+  256:    from google.cloud import container_v1
+  296:def disable_billing(project_id: str) -> bool:
+./dashboard.py (351 lines)
+  24:from __future__ import annotations
+  26:import json
+  27:import logging
+  28:import os
+  29:import re
+  30:import time
+  31:from datetime import datetime, timezone
+  32:from typing import Any
+  34:import flask
+  36:import registry
+  61:def _cached(key: str):
+  63:    def decorator(fn):
+  64:        def wrapper(*args, **kwargs):
+  85:def _get_bq_client():
+  88:        from google.cloud import bigquery
+  93:def _query_bq(sql: str) -> list[dict]:
+  111:def _sql_mtd_summary() -> str:
+  123:def _sql_daily_spend() -> str:
+  136:def _sql_top_services(limit: int = 10) -> str:
+  153:def _sql_top_projects() -> str:
+  167:def _sql_yesterday_vs_avg() -> str:
+  190:def _billing_table_for(billing_account_id: str) -> str | None:
+  199:def _sql_team_mtd_by_project(accounts: list) -> str | None:
+  234:def api_summary():
+  262:def api_daily():
+  272:def api_services():
+  282:def api_projects():
+  294:def api_spike():
+  308:def api_accounts():
+  310:    export table can be resolved for its billing account."""
+  346:def dashboard():
+./intent_storage.py (292 lines)
+  18:from __future__ import annotations
+  20:import os
+  21:import secrets
+  22:from datetime import datetime, timezone
+  23:from typing import Any
+  25:import intent as _intent_mod
+  26:from intent_models import Intent, Actual, ExpectedCost
+  33:def _get_firestore_client():
+  35:        from google.cloud import firestore
+  40:def _now_iso() -> str:
+  44:def _gen_id(prefix: str) -> str:
+  50:def save_intent(intent: Intent) -> None:
+  58:def get_intent(intent_id: str) -> Intent | None:
+  65:def save_declared_intent(intent: Intent) -> str | None:
+  78:        from google.cloud import firestore as _firestore
+  83:        def _declare(txn):
+  99:def list_intents(project_id: str | None = None, status: str | None = None) -> list[Intent]:
+  120:def _yaml_load_intents() -> list[Intent]:
+  121:    import yaml
+  129:def _yaml_load_actuals() -> list[Actual]:
+  130:    import yaml
+  138:def _yaml_load_expected_costs() -> list[ExpectedCost]:
+  139:    import yaml
+  147:def _yaml_save(path: str, key: str, items: list[dict]) -> None:
+  148:    import yaml
+  158:def save_actual(actual: Actual) -> None:
+  167:def list_actuals(intent_id: str | None = None, project_id: str | None = None) -> list[Actual]:
+  195:def sum_actuals_for_intent(intent_id: str) -> dict[str, Any]:
+  233:def save_expected_cost(ec: ExpectedCost) -> None:
+  244:def list_expected_costs(project_id: str | None = None) -> list[ExpectedCost]:
+  260:def save_kill_event(event: dict[str, Any]) -> None:
+  265:        import yaml
+  274:def list_kill_events(project_id: str | None = None, limit: int = 50) -> list[dict]:
+  285:        import yaml
+./registry.py (187 lines)
+  28:from __future__ import annotations
+  30:import json
+  31:import logging
+  32:import os
+  33:from dataclasses import dataclass, asdict
+  34:from typing import Any
+  36:from paths import resolve as _resolve_path
+  47:class Account:
+  72:    def to_dict(self) -> dict[str, Any]:
+  76:    def from_dict(cls, d: dict[str, Any]) -> "Account":
+  100:def _yaml_load_all() -> list[Account]:
+  101:    import yaml
+  110:def _yaml_save_all(accounts: list[Account]) -> None:
+  111:    import yaml
+  127:def _get_firestore_client():
+  130:        from google.cloud import firestore
+  136:def _firestore_load_all() -> list[Account]:
+  147:def _firestore_upsert(account: Account) -> None:
+  156:def list_accounts() -> list[Account]:
+  167:def get_account(project_id: str) -> Account | None:
+  174:def is_allowlisted(project_id: str) -> bool:
+  179:def register_account(account: Account) -> None:
+./cloud_management_client/__init__.py (2217 lines)
+  11:    from cloud_management_client import CloudManagementClient
+  118:from __future__ import annotations
+  120:import json
+  121:import logging
+  122:import os
+  123:import queue
+  124:import random
+  125:import re
+  126:import threading
+  127:import time
+  128:import urllib.error
+  129:import urllib.parse
+  130:import urllib.request
+  133:class _RedirectNoCreds(urllib.request.HTTPRedirectHandler):
+  136:    def redirect_request(self, req, fp, code, msg, headers, newurl):
+  137:        from urllib.parse import urlparse
+  148:from dataclasses import dataclass, field
+  149:from typing import Any
+  178:def expected_cost_from_list(
+  194:class CloudManagementError(Exception):
+  198:class JobKilledError(Exception):
+  207:    def __init__(self, message: str, kill_order: dict[str, Any] | None = None) -> None:
+  213:class KillOrder:
+  229:def _fail(msg: str, exc: Exception | None = None, strict: bool = False) -> None:
+  237:def _is_http_url(url: str) -> bool:
+  246:def _env_int(name: str, default: int) -> int:
+  263:def _env_float(name: str, default: float) -> float:
+  286:class _Spool:
+  304:    def __init__(
+  323:    def _ensure_dir(self) -> None:
+  331:    def _next_id(self) -> str:
+  339:    def _entry_path(self, entry_id: str) -> str | None:
+  347:    def write(self, path: str, payload: dict[str, Any], client_seq: int = 0) -> str | None:
+  383:    def _enforce_cap(self) -> None:
+  401:    def read(self, entry_id: str) -> dict[str, Any] | None:
+  423:    def remove(self, entry_id: str) -> None:
+  437:    def update_attempt(self, entry_id: str, attempts: int) -> None:
+  456:    def list_entries(self) -> list[str]:
+  468:    def is_expired(self, entry: dict[str, Any]) -> bool:
+  477:    def drop(self, entry_id: str, reason: str) -> None:
+  500:class PriceChange:
+  515:class LocalCostHistory:
+  562:    def __init__(
+  587:    def _load(self) -> dict[str, Any]:
+  610:    def _save(self, data: dict[str, Any]) -> None:
+  623:    def _key(provider: str, api: str) -> str:
+  628:    def record(
+  644:        from datetime import datetime, timezone
+  660:    def update_hub_expected(
+  684:    def update_hub_free_tier(
+  709:    def get_unit_cost(self, provider: str, api: str) -> float | None:
+  727:    def get_hub_unit_cost(self, provider: str, api: str) -> float | None:
+  737:    def suggest_expected_cost(
+  778:    def detect_price_changes(self) -> list[PriceChange]:
+  786:        from datetime import datetime, timedelta, timezone
+  827:    def _prune(self, data: dict[str, Any]) -> None:
+  829:        from datetime import datetime, timedelta, timezone
+  838:    def clear(self) -> None:
+  846:class IntentResponse:
+  866:class ActualResponse:
+  877:class BudgetCheck:
+  899:class CloudManagementClient:
+  916:    def __init__(
+  1029:                import ipaddress
+  1043:    def enabled(self) -> bool:
+  1048:    def _seed_client_seq(self) -> None:
+  1078:    def _ensure_worker(self) -> bool:
+  1106:    def _sleep(self, seconds: float) -> None:
+  1110:    def _worker_loop(self) -> None:
+  1125:    def _process_spool_entry(self, entry_id: str) -> None:
+  1167:    def flush(self, timeout: float = 5.0) -> None:
+  1189:    def close(self) -> None:
+  1199:    def _get_identity_token(self) -> str | None:
+  1240:    def _metadata_get(self, path: str) -> str | None:
+  1253:    def _refresh_base_url(self) -> bool:
+  1285:            import base64
+  1299:    def _auth_token(self) -> str:
+  1314:    def _gate_headers(self) -> dict[str, str]:
+  1329:    def _post_sync(self, path: str, payload: dict[str, Any], timeout: int | None = None, _refreshed: bool = False) -> dict[str, Any] | None:
+  1373:    def _get_sync(self, path: str, timeout: int | None = None, _refreshed: bool = False) -> dict[str, Any] | None:
+  1416:    def declare_intent(
+  1497:    def get_intent(self, intent_id: str) -> dict[str, Any] | None:
+  1506:    def wait_for_reschedule(
+  1524:        import time as _time
+  1537:    def check_budget(
+  1621:    def can_run(self, expected_cost_usd: float) -> bool:
+  1636:    def admit_paid_fallback(
+  1665:    def declare_vertex_fallback(
+  1716:    def get_expected_costs(self) -> dict[str, Any] | None:
+  1766:    def pull_expected_costs(self) -> dict[str, Any] | None:
+  1775:    def check_free_tier_remaining(self, provider: str, api: str) -> dict[str, Any] | None:
+  1799:    def suggest_expected_cost(
+  1822:    def detect_price_changes(self) -> list[PriceChange]:
+  1836:    def report_exposure(
+  1859:    def submit_report(
+  1883:    def report_actual(
+  1928:        from the intent's metadata when omitted).
+  2016:    def _inline_entry(self, path: str, payload: dict[str, Any]) -> str:
+  2027:    def check_kill_orders(self, since: str = "") -> list[KillOrder]:
+  2073:    def intent(
+  2093:class IntentContext:
+  2096:    def __init__(
+  2112:    def __enter__(self) -> "IntentContext":
+  2123:    def add_calls(self, calls: int, cost_usd: float = 0.0, tokens: int | None = None) -> None:
+  2130:    def report_incremental(self, status: str = "running", sync: bool = False) -> ActualResponse:
+  2165:    def check_kill_orders(self, since: str = "") -> list[KillOrder]:
+  2176:    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+./poller.py (171 lines)
+  34:from __future__ import annotations
+  36:import json
+  37:import logging
+  38:import os
+  39:from datetime import datetime, timedelta, timezone
+  40:from typing import Any
+  42:import registry
+  56:def _get_monitoring_client():
+  59:        from google.cloud import monitoring_v3
+  65:def _sum_metric(project_id: str, metric_type: str, minutes: int) -> float:
+  67:    from google.cloud import monitoring_v3
+  95:def check_account(account: "registry.Account") -> dict[str, Any] | None:
+  133:def poll_all_accounts(execute_killswitch) -> list[dict]:
+./intent_models.py (151 lines)
+  16:from __future__ import annotations
+  18:from dataclasses import dataclass, field, asdict
+  19:from typing import Any
+  26:class Intent:
+  48:    def to_dict(self) -> dict[str, Any]:
+  52:    def from_dict(cls, d: dict[str, Any]) -> "Intent":
+  77:class Actual:
+  97:    def to_dict(self) -> dict[str, Any]:
+  101:    def from_dict(cls, d: dict[str, Any]) -> "Actual":
+  124:class ExpectedCost:
+  136:    def to_dict(self) -> dict[str, Any]:
+  140:    def from_dict(cls, d: dict[str, Any]) -> "ExpectedCost":
+./packages/biofool-secrets/tests/test_resolver.py (159 lines)
+  3:from __future__ import annotations
+  5:import logging
+  7:import biofool_secrets
+  8:from biofool_secrets import gsm, proton, resolver
+  11:def test_env_wins_over_remote(monkeypatch):
+  19:def test_alias_env_order(monkeypatch):
+  24:def test_gsm_fallback_per_candidate(monkeypatch):
+  31:def test_secrets_backend_env_blocks_remote(monkeypatch):
+  42:def test_use_secret_manager_false_forces_env(monkeypatch):
+  47:def test_unrecognized_backend_fails_closed(monkeypatch, caplog):
+  49:    import logging
+  56:def test_unrecognized_use_secret_manager_fails_closed(monkeypatch, caplog):
+  57:    import logging
+  64:def test_default_returned_on_miss():
+  68:def test_project_scoped_aliases(monkeypatch):
+  80:def test_project_env_var_selects_scope(monkeypatch):
+  89:def test_negative_cache(monkeypatch):
+  98:def test_prefer_remote_puts_gsm_first(monkeypatch):
+  106:def test_prefer_remote_kwarg_overrides_env(monkeypatch):
+  117:def test_deprecated_alias_resolves_canonical(monkeypatch, tmp_path, caplog):
+  130:def test_list_names_blocked_in_env_backend(monkeypatch):
+  136:def test_fetch_secret_backend_gated_and_cached(monkeypatch):
+  150:def test_resolution_report_never_returns_value(monkeypatch):
+  157:def test_get_alias_matches_resolve(monkeypatch):
+./packages/biofool-secrets/biofool_secrets/gsm.py (280 lines)
+  10:from __future__ import annotations
+  12:import logging
+  13:import os
+  14:import shutil
+  15:import subprocess
+  16:from typing import Any
+  32:def secret_project(explicit: str | None = None) -> str:
+  45:def _sdk():
+  54:        from google.cloud import secretmanager  # type: ignore
+  62:def _gcloud() -> str | None:
+  72:def _access_sdk(name: str, project: str) -> str | None:
+  83:def _access_gcloud(name: str, project: str) -> str | None:
+  115:def access(name: str, project: str | None = None) -> str | None:
+  134:def list_names(project: str | None = None) -> list[str]:
+  173:def _push_sdk(project: str, name: str, value: str) -> tuple[bool, str]:
+  183:        from google.api_core.exceptions import AlreadyExists
+  215:def push_secret(name: str, value: str, project: str | None = None) -> tuple[bool, str]:
+  275:def reset() -> None:
+./packages/biofool-secrets/biofool_secrets/resolver.py (284 lines)
+  35:from __future__ import annotations
+  37:import json
+  38:import logging
+  39:import os
+  40:import threading
+  41:import time
+  43:from biofool_secrets import aliases as _aliases
+  44:from biofool_secrets import deprecation as _deprecation
+  45:from biofool_secrets import gsm as _gsm
+  46:from biofool_secrets import proton as _proton
+  55:def _ttl() -> int:
+  59:def _neg_ttl() -> int:
+  63:def backend() -> str:
+  92:def _remote_allowed(kind: str) -> bool:
+  102:def _cache_get(name: str) -> str | None:
+  110:def _cache_set(name: str, value: str) -> None:
+  115:def _neg_get(name: str) -> bool:
+  121:def _neg_set(name: str) -> None:
+  126:def _gsm_access(candidate: str, project: str | None) -> str | None:
+  143:def resolve_secret(
+  159:            from ``GCP_SECRET_PROJECT``/``SECRET_PROJECT_ID``/… env vars)
+  179:    def _env_pass() -> str | None:
+  187:    def _remote_pass() -> str | None:
+  205:def get(name: str, default: str = "", **kwargs) -> str:
+  210:def fetch_secret(name: str, secret_project: str | None = None) -> str | None:
+  221:def list_secret_names(secret_project: str | None = None) -> list[str]:
+  232:def is_enabled() -> bool:
+  237:def invalidate_cache(name: str | None = None) -> None:
+  248:def reset_caches() -> None:
+  257:def resolution_report(name: str, **kwargs) -> dict:
+./packages/biofool-secrets/biofool_secrets/cli.py (156 lines)
+  19:from __future__ import annotations
+  21:import argparse
+  22:import json
+  23:import sys
+  25:from biofool_secrets import resolver, token
+  28:def _cmd_resolve(args: argparse.Namespace) -> int:
+  44:def _cmd_list(args: argparse.Namespace) -> int:
+  50:def _cmd_env(args: argparse.Namespace) -> int:
+  88:def _cmd_check(args: argparse.Namespace) -> int:
+  96:def _cmd_token(args: argparse.Namespace) -> int:
+  113:def build_parser() -> argparse.ArgumentParser:
+  150:def main(argv: list[str] | None = None) -> int:
+./providers/aws.py (167 lines)
+  17:from __future__ import annotations
+  19:import json
+  20:import logging
+  21:import os
+  22:from datetime import datetime
+  23:from typing import Any
+  25:from providers.base import BilledCost, CostProvider, KillResult
+  30:def _dry_run() -> bool:
+  34:def _invalidate_on_auth_error(exc: Exception) -> None:
+  37:        import aws_session
+  44:def _ce_region() -> str:
+  49:class AwsProvider(CostProvider):
+  53:    def cloud(self) -> str:
+  56:    def kill_job(self, kill_descriptor: dict[str, Any], reason: str) -> KillResult:
+  65:    def _kill_ec2(self, desc: dict[str, Any], reason: str) -> KillResult:
+  84:            import aws_session
+  105:    def fetch_billed_costs(
+  116:            import aws_session
+  161:def _parse_date(value: str | None) -> datetime | None:
+./providers/gcp.py (265 lines)
+  13:from __future__ import annotations
+  15:import json
+  16:import logging
+  17:import os
+  18:import re
+  19:from datetime import datetime
+  20:from typing import Any
+  22:from providers.base import BilledCost, CostProvider, KillResult
+  27:def _dry_run() -> bool:
+  31:def _bq_dataset() -> str:
+  35:def _hub_project_id() -> str:
+  39:class GcpProvider(CostProvider):
+  43:    def cloud(self) -> str:
+  46:    def kill_job(self, kill_descriptor: dict[str, Any], reason: str) -> KillResult:
+  65:    def _kill_cloud_run(self, desc: dict[str, Any], reason: str) -> KillResult:
+  66:        from google.cloud import run_v2
+  102:    def _kill_cloud_scheduler(self, desc: dict[str, Any], reason: str) -> KillResult:
+  103:        from google.cloud import scheduler_v1
+  130:    def _kill_gce(self, desc: dict[str, Any], reason: str) -> KillResult:
+  131:        from google.cloud import compute_v1
+  154:    def _kill_gke(self, desc: dict[str, Any], reason: str) -> KillResult:
+  155:        from google.cloud import container_v1
+  180:    def fetch_billed_costs(
+  184:        from google.cloud import bigquery
+  251:def _billing_account_for_project(gcp_project_id: str) -> str:
+  257:        from google.cloud import billing_v1
+./intent_routes.py (579 lines)
+  32:from __future__ import annotations
+  34:import json
+  36:import flask
+  38:import registry
+  39:from intent import log
+  40:from intent_models import Intent, Actual
+  41:from intent_storage import (
+  54:from intent_detection import check_intent_overrun, check_project_budget, project_month_spend
+  55:from intent_kill import kill_intent
+  56:from intent_auth import _validate_token
+  73:def _int_field(data: dict, key: str, default=0):
+  81:def _float_field(data: dict, key: str, default=0.0):
+  88:def _public_intent_dict(intent: Intent) -> dict:
+  103:def declare_intent():
+  185:def report_actual():
+  295:def get_expected_costs(project_id: str):
+  325:def list_all_intents():
+  348:def list_project_intents(project_id: str):
+  375:def manual_kill(intent_id: str):
+  404:def get_project_budget(project_id: str):
+  440:def check_project_budget_admission(project_id: str):
+  499:def get_single_intent(intent_id: str):
+  514:def list_kill_orders():
+  540:def report_exposure():
+./aws_session.py (176 lines)
+  19:    from aws_session import get_client
+  35:from __future__ import annotations
+  37:import logging
+  38:import os
+  39:import sys
+  40:import time
+  41:from pathlib import Path
+  62:class AwsCredentialError(RuntimeError):
+  66:def _load_biofool_secrets():
+  69:        from biofool_secrets import asm
+  74:        from biofool_secrets import asm
+  78:def _source() -> str:
+  87:def _default_region() -> str:
+  91:def _ttl_seconds() -> float:
+  95:def _required_env(name: str) -> str:
+  102:def _fetch_credentials(region: str) -> tuple[str, str]:
+  119:def get_session():
+  125:    import boto3
+  145:def get_client(service: str, region: str | None = None, **kwargs):
+  153:def get_resource(service: str, region: str | None = None, **kwargs):
+  161:def is_auth_error(exc: BaseException) -> bool:
+  172:def invalidate_session() -> None:
