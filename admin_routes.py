@@ -112,16 +112,22 @@ def handle_poll_intents():
     )
 
 
-def _in_window(created_at: str, since, until) -> bool:
-    """True if an ISO timestamp falls in [since, until). Unparseable -> False."""
+def _parse_ts(created_at: str):
+    """Parse an ISO timestamp to an aware datetime, or None if unparseable."""
     from datetime import datetime, timezone
     try:
         when = datetime.fromisoformat(created_at)
     except (TypeError, ValueError):
-        return False
+        return None
     if when.tzinfo is None:
         when = when.replace(tzinfo=timezone.utc)
-    return since <= when < until
+    return when
+
+
+def _in_window(created_at: str, since, until) -> bool:
+    """True if an ISO timestamp falls in [since, until). Unparseable -> False."""
+    when = _parse_ts(created_at)
+    return when is not None and since <= when < until
 
 
 @bp.route("/reconcile", methods=["POST"])
@@ -157,6 +163,17 @@ def handle_reconcile():
         for actual in intent_mod.list_actuals(project_id=account.project_id):
             # Compare the same window as the billed costs, not all-time (CISO-121).
             if not _in_window(actual.created_at, since, until):
+                # A dropped actual whose created_at never parses (legacy rows
+                # predate the field) silently zeroes that provider's
+                # self-report — name it (issue #17).
+                if _parse_ts(actual.created_at) is None:
+                    main.log.warning(json.dumps({
+                        "event": "reconcile_actual_dropped",
+                        "project_id": account.project_id,
+                        "actual_id": actual.actual_id,
+                        "provider": actual.provider,
+                        "reason": "unparseable created_at",
+                    }))
                 continue
             key = actual.provider
             if key not in self_reported:
