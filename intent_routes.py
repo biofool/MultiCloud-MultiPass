@@ -113,6 +113,10 @@ def declare_intent():
         return flask.jsonify({"error": "unauthorized"}), 401
 
     intent_id = data.get("intent_id") or _gen_id("int")
+    # A caller-chosen intent_id must not overwrite another project's intent (CISO-117).
+    existing = get_intent(intent_id) if data.get("intent_id") else None
+    if existing is not None and existing.project_id != project_id:
+        return flask.jsonify({"error": "intent_id already in use"}), 409
     now = _now_iso()
 
     if min(_int_field(data, "expected_calls"), _int_field(data, "rate_limit_rpm"),
