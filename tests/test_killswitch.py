@@ -368,3 +368,26 @@ class TestIsProjectProtected:
         main.ALLOWLIST = set()
         with patch("registry.is_allowlisted", return_value=False):
             assert main.is_project_protected("dev-project") is False
+
+
+# ---------------------------------------------------------------------------
+# Tests: a failed action stays out of the returned list (issue #18)
+# ---------------------------------------------------------------------------
+
+class TestFailedActionNotReported:
+    def test_failed_stop_instance_not_in_actions(self):
+        # killswitch_actions.compute_v1 is whichever mock sys.modules held
+        # when main was first imported — patch that binding, not a re-import.
+        import killswitch_actions
+        compute_v1 = killswitch_actions.compute_v1
+        client = MagicMock()
+        inst = MagicMock(status=compute_v1.Instance.Status.RUNNING)
+        inst.name = "vm-1"  # name= is a reserved Mock kwarg, not an attribute
+        client.list.return_value = [inst]
+        client.stop.side_effect = Exception("api down")
+        with patch.object(main, "STOP_COMPUTE_INSTANCES", True), \
+             patch.object(main, "DRY_RUN", False), \
+             patch.object(compute_v1, "InstancesClient", return_value=client):
+            assert main.stop_compute_instances("p1", zones=["z1"]) == []
+            client.stop.side_effect = None
+            assert main.stop_compute_instances("p1", zones=["z1"]) == ["z1/vm-1"]
