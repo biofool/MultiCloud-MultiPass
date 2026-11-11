@@ -47,6 +47,7 @@ from intent_storage import (
     list_intents,
     list_kill_events,
     save_actual,
+    save_declared_intent,
     save_intent,
     sum_actuals_for_intent,
 )
@@ -113,10 +114,10 @@ def declare_intent():
         return flask.jsonify({"error": "unauthorized"}), 401
 
     intent_id = data.get("intent_id") or _gen_id("int")
-    # A caller-chosen intent_id must not overwrite another project's intent (CISO-117).
-    existing = get_intent(intent_id) if data.get("intent_id") else None
-    if existing is not None and existing.project_id != project_id:
-        return flask.jsonify({"error": "intent_id already in use"}), 409
+    # A caller-chosen intent_id must not overwrite another project's intent
+    # (CISO-117). The check runs inside save_declared_intent's write — on
+    # Firestore it is one transaction, because a read here would race a
+    # concurrent declare for the same id (issue #16).
     now = _now_iso()
 
     if min(_int_field(data, "expected_calls"), _int_field(data, "rate_limit_rpm"),
@@ -150,7 +151,8 @@ def declare_intent():
     if budget_check:
         intent.approved = False
         intent.status = "denied"
-        save_intent(intent)
+        if save_declared_intent(intent) is not None:
+            return flask.jsonify({"error": "intent_id already in use"}), 409
         log.warning(json.dumps({"event": "intent_denied", "intent_id": intent_id, "reason": budget_check}))
         return flask.jsonify({
             "intent_id": intent_id,
@@ -159,7 +161,8 @@ def declare_intent():
             "budget_remaining_usd": 0,
         }), 200
 
-    save_intent(intent)
+    if save_declared_intent(intent) is not None:
+        return flask.jsonify({"error": "intent_id already in use"}), 409
     log.info(json.dumps({"event": "intent_declared", "intent_id": intent_id, "project": project_id, "provider": intent.provider}))
 
     # Compute budget remaining — same month-scoped latest-per-intent
