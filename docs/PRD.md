@@ -1,9 +1,13 @@
-# CloudManagement — Product Requirements Document
+# MultiCloud-MultiPass — Product Requirements Document
 
 **Status:** Active
-**Last updated:** 2026-07-26
-**GitHub:** `https://github.com/your-org/CloudManagement`
-**Former name:** CloudBilling (GCP Cost Kill Switch)
+**Last updated:** 2026-11-05
+**GitHub:** `https://github.com/your-org/MultiCloud-MultiPass`
+**Former name:** CloudBilling (GCP Cost Kill Switch); CloudManagement
+**Branch scope:** The `Vigilent` branch serves the Security folder (for example `ai-pentest-eval` and `VigilentSupport_Security_AI`). It adds AWS support and AWS Secrets Manager. CloudManagement serves projects outside the Security folder.
+**Sponsor:** CISO (Vigilent)
+**Exercise type:** Blue team exercise. Defensive. Work on `Vigilent` supports detection and containment, not offensive testing.
+**Network path under review:** AWS EC2 test instance → WireGuard tunnel → `eng-rtx-a5000` (10.3.0.122) → Akitra DMZ. The DMZ addressing and routing are not yet documented. See `docs/network/aws-dmz-path.md`.
 
 ---
 
@@ -22,6 +26,9 @@ accounts** across the your-org project portfolio. It serves three roles:
 3. **Intent/actual reporting hub** — sub-projects declare expected API usage
    before making calls and report actuals after. CloudManagement validates
    actual vs intent, detects overruns, and can kill the specific job.
+4. **AWS operations for Security-folder projects** — EC2 stop/terminate kill
+   actions, Cost Explorer reconciliation, and credentials held in AWS Secrets
+   Manager.
 
 This PRD defines the inventory schema, the job-placement policy (where to
 store / where to run), and the coordination rules that every other repo must
@@ -40,6 +47,11 @@ follow.
 - Provide a cost kill switch that can stop runaway spend at three levels:
   per-job (intent/actual overrun), per-project (quota-based), and
   per-billing-account (billing shutoff).
+- Support AWS as a provider: EC2 kill actions (`stop` by default,
+  `terminate` only on explicit request) and Cost Explorer reconciliation by
+  the `project_id` cost-allocation tag.
+- Store AWS credentials for Security-folder projects in AWS Secrets Manager.
+  Do not store them in GCP Secret Manager or in committed env files.
 - Provide an intent/actual reporting protocol that sub-projects integrate
   via the `cloud_management_client` package — consumed as a **pinned git
   dependency**, never vendored (see "Shared packages" below).
@@ -92,6 +104,7 @@ repo: **pin a git dependency to the canonical repo; do not copy files.**
 | F | Cloudflare | zone `your-domain.com`, Pages project `your-pages-project` | `your-org/your-security-repo` | Pages bandwidth, redirect rules (mostly free tier) |
 | G | Cloudflare R2 | per-user account | `your-org/ClipQuotes` | Object storage (S3-compatible) if rclone R2 configured |
 | H | HuggingFace | per-user token | `your-org/ClipQuotes` | `pyannote` diarization models (free tier; paid inference possible) |
+| I | AWS | account `your-aws-account-id`, region `us-east-1` (default) | `your-org/ai-pentest-eval` (Security folder) | EC2 GPU inference instance (planned: `g6.xlarge`, ~$0.805/hr on-demand), AWS Secrets Manager, Cost Explorer. EC2 provisioning is gated on sign-off of `ai-pentest-eval/docs/aws-deployment-authorization.md` (Section 7 unsigned as of 2026-11-05). |
 
 ### 4.2 Accounts excluded (no usage-based billing)
 
@@ -166,7 +179,8 @@ repo's PRD must be updated.**
 | **Structured datasets** (scrape results, CSV exports) | BigQuery (GCP) or SQLite (local/DVC) | BigQuery: 1TB free queries/month, good for analytics. SQLite: zero cost, DVC-tracked, good for <1M rows |
 | **Corpus / knowledge base** (Markdown, FTS indexes) | Git + DVC (small) or Cloud Storage (large) | DVC gives version control without bloating git; Cloud Storage for >100MB indexes |
 | **Cost / billing records** | Firestore `api_costs` (per-project) + BigQuery `cloud_billing_export` (hub) | Firestore for real-time per-call tracking; BigQuery for reconciliation against cloud billing export |
-| **Secrets** | GCP Secret Manager | Never in git, never in env files committed to repo. $0.03 per secret version per month |
+| **Secrets (Security folder)** | AWS Secrets Manager (or SSM Parameter Store SecureString) | Security-folder projects use AWS for credentials. Never in git, never in committed env files. Access is scoped to the specific secret ARNs. |
+| **Secrets (other projects)** | GCP Secret Manager | Never in git, never in env files committed to repo. $0.03 per secret version per month |
 | **Cache / ephemeral** | In-memory or Redis (if available) | Don't persist what you can recompute cheaply |
 
 ### 6.2 Where to run jobs
@@ -178,6 +192,7 @@ repo's PRD must be updated.**
 | **Event-driven functions** (Pub/Sub → email/SMS) | Cloud Functions 2nd gen (GCP) | Pub/Sub-triggered, scale-to-zero, 2M invocations/month free |
 | **Long-running batch jobs** (scraping, data processing) | Compute Engine VM (GCP) or OpenStack instance | Cloud Run max timeout is 60min. For >60min jobs, use a VM. OpenStack for cost-sensitive batch (your-openstack-provider) |
 | **ML inference** (transcription, diarization) | Local GPU or HuggingFace free tier | Cloud GPU is expensive ($0.50+/hr). Use local GPU or HF free tier for development; only use cloud GPU for production-scale |
+| **LLM inference for Security-folder exploit phase** | EC2 GPU instance (AWS, `g6.xlarge` default), reached over a WireGuard tunnel to the eng server. Planned; not provisioned. | Keeps the inference API off the public internet. Requires authorization sign-off first (see 4.1 row I). Terraform draft: `CloudManagement/terraform-aws/modules/aws_ec2/`. The `Vigilent` branch may move it into this repo. |
 | **One-off scripts / fix scripts** | Local workstation | `scripts/fix/` convention with `--dry-run`. Never run fix scripts in production without testing |
 | **Static websites** | Cloudflare Pages or your-shared-hosting.com shared hosting | Free, no compute cost. Cloudflare for modern stacks; your-shared-hosting.com for PHP |
 | **Cron jobs < 15 min** | Cloud Scheduler → Cloud Run | Free tier covers most cron workloads |
@@ -285,7 +300,9 @@ See `README.md` for the architecture diagram. Key components:
 - `cloud_auth/` — per-project GCP credential management (NEVER commit)
 - `config/` — YAML config files (accounts, intents, kill events)
 - `terraform/` — GCP infrastructure provisioning
-- `providers/` — cloud provider adapters (GCP, OpenStack, Cloudflare, HTTP callback)
+- `providers/` — cloud provider adapters (GCP, OpenStack, Cloudflare, AWS, HTTP callback)
+- `providers/aws.py` — AWS adapter: EC2 `stop_instances` / `terminate_instances` kill actions (dry-run by default) and Cost Explorer `get_cost_and_usage` filtered by the `project_id` tag
+- `aws_session.py` — builds a boto3 session from credentials it resolves at runtime; falls back to boto3's default chain if resolution fails (see Section 10 for the planned fix)
 
 ---
 
@@ -300,6 +317,25 @@ See `README.md` for the architecture diagram. Key components:
   needs an admin endpoint + runbook.
 - **Dashboard inventory view** — the dashboard HTML needs a resource
   inventory tab showing all resources grouped by account/project.
+- **AWS Secrets Manager backend (done on `Vigilent`, uncommitted)** — 
+  `biofool_secrets/asm.py` reads secrets via boto3's default chain.
+  `aws_session.py` reads credentials from it when
+  `AWS_CREDENTIAL_SOURCE=secretsmanager`. Not yet wired into the generic
+  resolver (`resolve_secret`); that stays open.
+- **Fail closed for AWS kill actions (done)** — with the Secrets Manager source,
+  a read failure or unknown source raises `AwsCredentialError`. There is no
+  fallback to the default chain. The kill returns `killed=False`.
+- **Credential rotation (done)** — the session expires after
+  `AWS_SESSION_TTL_SECONDS` (default 300). Auth errors drop the cached session.
+- **Registry field naming** — `aws_access_key_secret` in `registry.py` names a
+  GCP-style secret. Replace it with a secret ID or ARN field for AWS.
+- **Frozen-module exception (resolved 2026-11-05)** — `docs/convergence.md`
+  still freezes `registry.py` and other server modules on `dev`. The
+  `Vigilent` branch is unfrozen: it may extend these modules and move code
+  from `CloudManagement`.
+- **Test coverage** — AWS provider and session tests are not yet run as part
+  of this PRD's acceptance. Run `tests/test_providers.py` and
+  `tests/test_aws_session.py` before merging the `Vigilent` branch.
 
 ## Secret naming convention (portfolio-wide, 2026-10-25)
 

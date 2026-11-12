@@ -60,6 +60,14 @@ from intent_auth import _validate_token
 
 bp = flask.Blueprint("intent", __name__)
 
+# Client-reported job outcomes on POST /api/v1/actual. Hub lifecycle states
+# (stale/deferred/denied/expired/killed/kill_failed) are assigned by the hub,
+# never by the caller (CloudManagement #198).
+_VALID_REPORTED_STATUSES = {"running", "completed", "failed", "cancelled"}
+# A killed/denied/expired intent must not be regressed by a later report.
+# The actual is still stored; only the intent status write is refused (#198).
+_TERMINAL_INTENT_STATUSES = {"killed", "kill_failed", "denied", "expired"}
+
 
 def _int_field(data: dict, key: str, default=0):
     """Parse an int field or 400 — bare int() on user input 500s."""
@@ -105,7 +113,15 @@ def declare_intent():
         return flask.jsonify({"error": "unauthorized"}), 401
 
     intent_id = data.get("intent_id") or _gen_id("int")
+    # A caller-chosen intent_id must not overwrite another project's intent (CISO-117).
+    existing = get_intent(intent_id) if data.get("intent_id") else None
+    if existing is not None and existing.project_id != project_id:
+        return flask.jsonify({"error": "intent_id already in use"}), 409
     now = _now_iso()
+
+    if min(_int_field(data, "expected_calls"), _int_field(data, "rate_limit_rpm"),
+           _float_field(data, "expected_cost_usd")) < 0:
+        return flask.jsonify({"error": "numeric fields must be >= 0"}), 400
 
     intent = Intent(
         intent_id=intent_id,
@@ -189,6 +205,16 @@ def report_actual():
     existing_actuals = list_actuals(intent_id=intent_id)
     seq = max((a.sequence for a in existing_actuals), default=-1) + 1
 
+    # Status is the client's job outcome only. Hub lifecycle states must not
+    # be writable by the caller (#198).
+    reported_status = str(data.get("status", "completed"))
+    if reported_status not in _VALID_REPORTED_STATUSES:
+        return flask.jsonify({"error": "invalid status", "valid": sorted(_VALID_REPORTED_STATUSES)}), 400
+    actual_calls = _int_field(data, "actual_calls")
+    actual_cost_usd = _float_field(data, "actual_cost_usd")
+    if actual_calls < 0 or actual_cost_usd < 0:
+        return flask.jsonify({"error": "numeric fields must be >= 0"}), 400
+
     actual = Actual(
         actual_id=_gen_id("act"),
         intent_id=intent_id,
@@ -196,10 +222,10 @@ def report_actual():
         job_id=data.get("job_id", intent.job_id),
         provider=data.get("provider", intent.provider),
         api=data.get("api", intent.api),
-        actual_calls=_int_field(data, "actual_calls"),
-        actual_cost_usd=_float_field(data, "actual_cost_usd"),
+        actual_calls=actual_calls,
+        actual_cost_usd=actual_cost_usd,
         actual_tokens=data.get("actual_tokens"),
-        status=data.get("status", "completed"),
+        status=reported_status,
         started_at=data.get("started_at", ""),
         ended_at=data.get("ended_at", ""),
         sequence=seq,
@@ -208,10 +234,19 @@ def report_actual():
     )
     save_actual(actual)
 
-    # Update intent status
-    intent.status = actual.status
-    intent.updated_at = _now_iso()
-    save_intent(intent)
+    # Update intent status, except when the intent already reached a terminal
+    # state. A later report must not regress it (#198).
+    if intent.status not in _TERMINAL_INTENT_STATUSES:
+        intent.status = actual.status
+        intent.updated_at = _now_iso()
+        save_intent(intent)
+    else:
+        log.warning(json.dumps({
+            "event": "intent_status_regression_blocked",
+            "intent_id": intent_id,
+            "current_status": intent.status,
+            "reported_status": actual.status,
+        }))
 
     log.info(json.dumps({
         "event": "actual_reported",

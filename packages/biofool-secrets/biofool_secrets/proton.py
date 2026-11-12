@@ -18,7 +18,9 @@ import time
 
 log = logging.getLogger("biofool_secrets.proton")
 
-_CACHE: dict[str, tuple[str, float]] = {}
+# Keyed by (vault_name, key_name) — item names are only unique within a
+# vault (#198).
+_CACHE: dict[tuple[str, str], tuple[str, float]] = {}
 
 
 def _truthy(val: str | None) -> bool:
@@ -52,14 +54,14 @@ def get_secret(key_name: str, vault: str | None = None) -> str:
     """Resolve one secret from Proton Pass. "" when disabled or not found."""
     if not is_enabled():
         return ""
-    cached = _CACHE.get(key_name)
+    vault_name = vault or os.environ.get("PROTON_PASS_VAULT", "CloudManagement")
+    cache_key = (vault_name, key_name)
+    cached = _CACHE.get(cache_key)
     if cached is not None:
         value, ts = cached
         if time.time() - ts < int(os.environ.get("PROTON_PASS_CACHE_TTL", "300")):
             return value
-        _CACHE.pop(key_name, None)
-
-    vault_name = vault or os.environ.get("PROTON_PASS_VAULT", "CloudManagement")
+        _CACHE.pop(cache_key, None)
     try:
         result = _run_cli(
             "item", "get", "--vault-name", vault_name,
@@ -79,7 +81,7 @@ def get_secret(key_name: str, vault: str | None = None) -> str:
         return ""
 
     value = result.stdout.strip() if result.returncode == 0 else ""
-    _CACHE[key_name] = (value, time.time())
+    _CACHE[cache_key] = (value, time.time())
     return value
 
 
