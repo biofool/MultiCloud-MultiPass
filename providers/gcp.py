@@ -242,24 +242,9 @@ class GcpProvider(CostProvider):
 
 
 # ---------------------------------------------------------------------------
-# Billing account lookup — maps a GCP project to its billing account ID
+# Billing account lookup — implemented in providers/gcp_billing.py (split
+# during the ≤250-line refactor); re-exported so the call in
+# fetch_billed_costs above and any external callers keep working.
 # ---------------------------------------------------------------------------
 
-_project_billing_cache: dict[str, str] = {}
-
-
-def _billing_account_for_project(gcp_project_id: str) -> str:
-    """Look up the billing account ID for a GCP project (cached)."""
-    if gcp_project_id in _project_billing_cache:
-        return _project_billing_cache[gcp_project_id]
-
-    try:
-        from google.cloud import billing_v1
-        client = billing_v1.CloudBillingClient()
-        info = client.get_project_billing_info(name=f"projects/{gcp_project_id}")
-        account = info.billing_account_name.replace("billingAccounts/", "") if info.billing_account_name else ""
-        _project_billing_cache[gcp_project_id] = account
-        return account
-    except Exception as exc:
-        log.warning(json.dumps({"event": "billing_lookup_error", "project": gcp_project_id, "error": str(exc)[:200]}))
-        return ""
+from providers.gcp_billing import _billing_account_for_project  # noqa: E402,F401
