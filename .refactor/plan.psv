@@ -1,0 +1,16 @@
+ID|STAGE|LANE|ACT|SRC|DST|SYMBOLS|DEPS|NOTE
+R0|1|tests|T|tests/test_killswitch.py|tests/test_killswitch.py.split|-|-|-characterization tests before split
+R1|1|tests|T|tests/test_providers.py|tests/test_providers.py.split|-|-|-characterization tests before split
+R2|1|tests|T|tests/test_intent.py|tests/test_intent.py.split|-|-|-characterization tests before split
+R3|1|tests|T|tests/test_admin_routes.py|tests/test_admin_routes.py.split|-|-|-characterization tests before split
+R4|2|src|S|admin_routes.py|admin_routes.py.split|-|-|-split by responsibility into modules <=250
+R5|2|src|S|scripts/fix/check_bq_billing_export.py|scripts/fix/check_bq_billing_export.py.split|-|-|-split by responsibility into modules <=250
+R6|2|src|S|main.py|main.py.split|-|-|-split by responsibility into modules <=250
+R7|2|src|S|killswitch_actions.py|killswitch_actions.py.split|-|-|-split by responsibility into modules <=250
+R8|2|src|S|dashboard.py|dashboard.py.split|-|-|-split by responsibility into modules <=250
+R9|2|src|S|intent_storage.py|intent_storage.py.split|-|-|-split by responsibility into modules <=250
+V10|0|-|-|cloud_management_client/__init__.py|-|-|-|SKIP vendored/shared — fix upstream (canonical copy)
+V11|0|-|-|packages/biofool-secrets/biofool_secrets/gsm.py|-|-|-|SKIP vendored/shared — fix upstream (canonical copy)
+V12|0|-|-|packages/biofool-secrets/biofool_secrets/resolver.py|-|-|-|SKIP vendored/shared — fix upstream (canonical copy)
+R13|2|src|S|providers/gcp.py|providers/gcp.py.split|-|-|-split by responsibility into modules <=250
+R14|2|src|S|intent_routes.py|intent_routes.py.split|-|-|-split by responsibility into modules <=250
